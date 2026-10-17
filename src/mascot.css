@@ -1,0 +1,17 @@
+/* A tiny local island: no full-screen pointer interception. */
+.mascot { position: fixed; z-index: 20; bottom: max(10px, env(safe-area-inset-bottom)); width: 144px; color: #F0EEE7; transition: left .08s linear; }
+.mascot-character { display: block; width: 112px; height: 120px; margin: 0 auto; padding: 4px 8px; border: 0; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.mascot-character img { display: block; width: 96px; height: 112px; image-rendering: pixelated; filter: drop-shadow(0 3px 0 #11151855); pointer-events: none; }
+.mascot-controls { display: flex; align-items: center; justify-content: space-between; height: 44px; border: 1px solid #F0EEE72b; background: #111518f2; border-radius: 7px; box-shadow: 0 2px 12px #0003; }
+.mascot-controls span { font: 11px/1 monospace; color: #A6D9ED; letter-spacing: 1px; }
+.mascot-controls button { width: 44px; height: 44px; border: 0; background: transparent; color: #F0EEE7; font-size: 18px; cursor: pointer; }
+.mascot-controls button:hover { color: #A6D9ED; }
+.mascot button:focus-visible, .mascot-restore:focus-visible { outline: 2px solid #A6D9ED; outline-offset: 2px; border-radius: 4px; }
+.mascot-restore { position: fixed; z-index: 20; bottom: max(10px, env(safe-area-inset-bottom)); right: 8px; min-height: 44px; padding: 0 14px; border: 1px solid #A6D9ED66; border-radius: 6px; background: #111518; color: #A6D9ED; font: 12px monospace; cursor: pointer; }
+.mascot-moving img { animation: mascot-step .32s steps(2, end) infinite; }
+.mascot[data-paused="true"] { transition: none; }
+@keyframes mascot-step { 50% { transform: translateY(-2px) rotate(2deg); } }
+/* Leave space after the last content so it can always scroll above the mascot. */
+body { padding-bottom: 178px; }
+@media (prefers-reduced-motion: reduce) { .mascot { transition: none; } .mascot img { animation: none; } }
+@media (max-width: 480px) { .mascot-character { height: 104px; } .mascot-character img { width: 82px; height: 96px; margin: auto; } body { padding-bottom: 160px; } }

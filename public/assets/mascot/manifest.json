@@ -1,0 +1,62 @@
+{
+  "name": "0n26 CRT robot",
+  "design": "Original integer-grid vector artwork",
+  "viewBox": [
+    0,
+    0,
+    96,
+    112
+  ],
+  "svgWidth": 96,
+  "svgHeight": 112,
+  "pngWidth": 384,
+  "pngHeight": 448,
+  "preview": "emotions-preview.png",
+  "palette": {
+    "graphite": "#111518",
+    "ivory": "#F0EEE7",
+    "cyan": "#A6D9ED"
+  },
+  "states": {
+    "idle": {
+      "svg": "idle.svg",
+      "png": "idle.png",
+      "description": "The exact 0n26 wordmark lights up the CRT screen."
+    },
+    "blink": {
+      "svg": "blink.svg",
+      "png": "blink.png",
+      "description": "A quick relaxed blink, with two closed eyes."
+    },
+    "happy": {
+      "svg": "happy.svg",
+      "png": "happy.png",
+      "description": "Two smiling eyes and a bright open smile."
+    },
+    "curious": {
+      "svg": "curious.svg",
+      "png": "curious.png",
+      "description": "One raised eyebrow and an inquisitive expression."
+    },
+    "surprised": {
+      "svg": "surprised.svg",
+      "png": "surprised.png",
+      "description": "Wide eyes and a tiny round open mouth."
+    },
+    "sleepy": {
+      "svg": "sleepy.svg",
+      "png": "sleepy.png",
+      "description": "Heavy eyelids and a tiny sleepy z."
+    },
+    "walk": {
+      "svg": "walk.svg",
+      "png": "walk.png",
+      "description": "A cheerful mid-step pose, with one foot lifted."
+    },
+    "wave": {
+      "svg": "wave.svg",
+      "png": "wave.png",
+      "description": "A raised articulated hand waves hello."
+    }
+  }
+}
