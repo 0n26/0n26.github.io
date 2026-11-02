@@ -7,10 +7,13 @@ import TargetCursor from './TargetCursor.jsx';
 import ClickSpark from './ClickSpark.jsx';
 import DecryptedText from './DecryptedText.jsx';
 import SpotlightCard from './SpotlightCard.jsx';
+import Terminal from './Terminal.jsx';
 const asset = name => `${import.meta.env.BASE_URL}assets/${name}`;
 function Arrow({diagonal=false}) { return <span aria-hidden="true">{diagonal ? '↗' : '↗'}</span>; }
 function App() {
   const [filter, setFilter] = useState('all');
+  const [terminalOpen, setTerminalOpen] = useState(false);
+  const [driveMode, setDriveMode] = useState(false);
   const [projectSignal, setProjectSignal] = useState(0);
   const noticeProject = () => setProjectSignal(value => value + 1);
   const visible = filterProjects(filter);
@@ -18,7 +21,7 @@ function App() {
     <a className="skip" href="#main">Перейти к содержимому</a>
     <header className="header wrap">
       <a className="brand" href="#top" aria-label="0n26 — наверх" data-cursor-label="0n26"><img src={asset('favicon.svg')} alt="" width="32" height="32"/><span>{profile.handle}<span className="brand-dot">.</span></span></a>
-      <nav aria-label="Основная навигация"><a href="#projects" data-cursor-label="Проекты">Проекты</a><a href="#stack" data-cursor-label="Стек">Стек</a><a className="nav-github" href={profile.github} data-cursor-label="GitHub">GitHub <Arrow/></a></nav>
+      <nav aria-label="Основная навигация"><button className="nav-terminal-btn" onClick={() => setTerminalOpen(true)} data-cursor-label="Терминал"><span>&gt;_</span> TERMINAL</button><a href="#projects" data-cursor-label="Проекты">Проекты</a><a href="#stack" data-cursor-label="Стек">Стек</a><a className="nav-github" href={profile.github} data-cursor-label="GitHub">GitHub <Arrow/></a></nav>
     </header>
     <main id="main">
       <section className="hero wrap" id="top" aria-labelledby="hero-title">
@@ -45,7 +48,8 @@ function App() {
     <footer className="footer wrap"><span>0n26 <span className="muted">/ Код. Инструменты. Моды.</span></span><a href="#top" data-cursor-label="Наверх">Наверх ↑</a></footer>
     <ClickSpark />
     <TargetCursor />
-    <Mascot projectSignal={projectSignal}/>
+    <Mascot projectSignal={projectSignal} driveMode={driveMode} onDriveChange={setDriveMode}/>
+    <Terminal isOpen={terminalOpen} onClose={setTerminalOpen} onDriveRobot={() => { setDriveMode(true); setTerminalOpen(false); }} />
   </>;
 }
 createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);

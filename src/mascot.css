@@ -15,3 +15,26 @@
 body { padding-bottom: 178px; }
 @media (prefers-reduced-motion: reduce) { .mascot { transition: none; } .mascot img { animation: none; } }
 @media (max-width: 480px) { .mascot-character { height: 104px; } .mascot-character img { width: 82px; height: 96px; margin: auto; } body { padding-bottom: 160px; } }
+.mascot-drive-hud {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111518f2;
+  border: 1px solid var(--accent, #a6d9ed);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font: 10px/1.2 var(--mono, monospace);
+  color: var(--accent, #a6d9ed);
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  pointer-events: none;
+  animation: mascot-hud-bounce 1.5s infinite alternate ease-in-out;
+}
+@keyframes mascot-hud-bounce {
+  from { transform: translateX(-50%) translateY(0); }
+  to { transform: translateX(-50%) translateY(-3px); }
+}
+.mascot-driving {
+  transition: none !important;
+}

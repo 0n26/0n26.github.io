@@ -31,12 +31,13 @@ const cursorFile = await trans('../src/TargetCursor.jsx', "import './target-curs
 const decryptFile = await trans('../src/DecryptedText.jsx', '');
 const spotlightFile = await trans('../src/SpotlightCard.jsx', "import './spotlight-card.css';");
 const sparkFile = await trans('../src/ClickSpark.jsx', '');
-
+const termFile = await trans('../src/Terminal.jsx', "import './terminal.css';");
 try {
   const { default: TargetCursor } = await import(cursorFile.href);
   const { default: DecryptedText } = await import(decryptFile.href);
   const { default: SpotlightCard } = await import(spotlightFile.href);
   const { default: ClickSpark } = await import(sparkFile.href);
+  const { default: Terminal } = await import(termFile.href);
   const { createRoot } = await import('react-dom/client');
   const root = createRoot(document.querySelector('#root'));
 
@@ -62,7 +63,13 @@ try {
   // 4. ClickSpark
   await act(() => root.render(React.createElement(ClickSpark)));
   assert.ok(document.querySelector('canvas'), 'click spark canvas mounted');
+  assert.ok(document.querySelector('canvas'), 'click spark canvas mounted');
 
+  // 5. Terminal
+  await act(() => root.render(React.createElement(Terminal, { isOpen: true, onClose: () => {} })));
+  assert.ok(document.querySelector('.terminal-window'), 'terminal window rendered');
+  assert.ok(document.querySelector('.terminal-input'), 'terminal input rendered');
+  assert.match(document.querySelector('.terminal-body').textContent, /0n26 \/\/ SYSTEM TERMINAL/);
   // 5. Cleanup
   await act(() => root.unmount());
   assert.equal(document.querySelectorAll('.target-cursor, .spotlight-card, canvas').length, 0, 'clean unmount');
@@ -73,5 +80,5 @@ try {
   unlinkSync(decryptFile);
   unlinkSync(spotlightFile);
   unlinkSync(sparkFile);
-  dom.window.close();
+  unlinkSync(termFile);
 }
