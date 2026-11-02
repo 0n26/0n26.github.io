@@ -1,0 +1,29 @@
+.spotlight-card {
+  position: relative;
+  isolation: isolate;
+}
+
+.spotlight-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--spotlight-opacity, 0);
+  background: radial-gradient(
+    circle var(--spotlight-size, 280px) at var(--spotlight-x, 0px) var(--spotlight-y, 0px),
+    var(--spotlight-color, rgba(166, 217, 237, 0.12)),
+    transparent 70%
+  );
+  transition: opacity 0.25s ease;
+  z-index: 1;
+}
+
+.spotlight-card:hover {
+  border-color: var(--spotlight-border, rgba(166, 217, 237, 0.45));
+}
+
+.project-card .card-image,
+.project-card .card-body {
+  position: relative;
+  z-index: 2;
+}
