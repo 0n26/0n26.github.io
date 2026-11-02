@@ -13,7 +13,8 @@
     "test": "node --test tests/unit.test.mjs",
     "test:browser": "node tests/browser.mjs",
     "test:dom": "node tests/dom.mjs",
-    "test:mascot": "node tests/mascot.mjs"
+    "test:mascot": "node tests/mascot.mjs",
+    "test:cursor": "node tests/cursor.mjs"
   },
   "dependencies": {
     "react": "19.2.0",

@@ -1,0 +1,41 @@
+/* Target cursor: animated physics-based cursor snapping to interactive elements */
+.target-cursor {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483647;
+}
+.target-cursor,
+.target-cursor * {
+  pointer-events: none;
+}
+.target-cursor-corner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  transform-origin: top left;
+  border-style: solid;
+  border-color: var(--target-cursor-color, #ffffff);
+  will-change: transform;
+}
+.target-cursor-dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  background: var(--target-cursor-color, #ffffff);
+  will-change: transform;
+}
+.target-cursor-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font: 11px/1 var(--mono, monospace);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  color: var(--target-cursor-color, #ffffff);
+  will-change: transform, opacity;
+}
