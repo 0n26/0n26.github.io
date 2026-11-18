@@ -10,6 +10,7 @@
 }
 
 .video,
+.poster,
 .canvas {
   position: absolute;
   inset: 0;
@@ -18,6 +19,7 @@
   object-fit: contain;
 }
 
+.poster,
 .canvas {
   pointer-events: none;
 }

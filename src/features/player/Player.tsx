@@ -151,7 +151,6 @@ export function Player({ streams, poster }: PlayerProps) {
           className={classes.video}
           aria-label="Видео эпизода"
           crossOrigin="anonymous"
-          poster={poster}
           preload="metadata"
           playsInline
           onTimeUpdate={(event) => setTime(event.currentTarget.currentTime)}
@@ -164,6 +163,8 @@ export function Player({ streams, poster }: PlayerProps) {
             setMuted(event.currentTarget.muted);
           }}
         />
+        {/* AniLiberty thumbnails do not share the video CDN's CORS policy. */}
+        {poster && !playing && time === 0 && <img className={classes.poster} src={poster} alt="" />}
         {enhanced && !mediaError && <canvas key={url} ref={canvasRef} className={classes.canvas} aria-hidden="true" hidden />}
       </div>
       <Stack gap="sm" p="sm" role="group" aria-label="Управление воспроизведением">
