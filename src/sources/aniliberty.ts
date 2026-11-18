@@ -1,0 +1,153 @@
+import type { AnimeSource, AnimeTitle, CatalogEntry, Episode } from './source';
+
+const ORIGIN = 'https://anilibria.top';
+const API = `${ORIGIN}/api/v1/anime`;
+const QUALITY_LEVELS = [480, 720, 1080] as const;
+const IMAGE_SIZES = ['preview', 'src', 'thumbnail'] as const;
+const ALIAS = /^[a-z0-9_-]+$/i;
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function text(value: unknown): string | undefined {
+  return typeof value === 'string' ? value.trim() || undefined : undefined;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function positiveInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1;
+}
+
+function httpsUrl(value: unknown, allowRelative = false): string | undefined {
+  const raw = text(value);
+  if (!raw) return;
+  const relative = allowRelative && raw.startsWith('/') && !raw.startsWith('//');
+  if (!relative && !/^https:\/\//i.test(raw)) return;
+
+  try {
+    const url = relative ? new URL(raw, ORIGIN) : new URL(raw);
+    if (url.protocol === 'https:' && !url.username && !url.password && (!relative || url.origin === ORIGIN)) {
+      return url.href;
+    }
+  } catch {
+    return;
+  }
+}
+
+function imageUrl(value: unknown): string | undefined {
+  const image = record(value);
+  const optimized = record(image?.optimized);
+  for (const size of IMAGE_SIZES) {
+    const url = httpsUrl(optimized?.[size], true) ?? httpsUrl(image?.[size], true);
+    if (url) return url;
+  }
+}
+
+function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefined {
+  const alias = text(release.alias);
+  if (!alias || !ALIAS.test(alias)) return;
+  const names = record(release.name);
+  const english = text(names?.english);
+  const alternative = text(names?.alternative);
+  const name = text(names?.main) ?? english ?? alternative ?? alias;
+  const alternateName = english === name ? alternative : english ?? alternative;
+  return {
+    alias,
+    name,
+    alternateName: alternateName === name ? undefined : alternateName,
+    poster: imageUrl(release.poster),
+    year: positiveInteger(release.year) ? release.year : undefined,
+  };
+}
+
+function restrictionFor(release: Record<string, unknown>): AnimeTitle['restriction'] {
+  if (release.is_blocked_by_copyrights === true) return 'copyright';
+  if (release.is_blocked_by_geo === true) return 'geo';
+  // Do not publish streams when the provider has not confirmed both permissions.
+  if (release.is_blocked_by_copyrights !== false || release.is_blocked_by_geo !== false) return 'unknown';
+}
+
+function episodesFrom(items: unknown[], restricted: boolean): Episode[] {
+  const episodes = new Map<string, { order: number; episode: Episode }>();
+  for (const item of items) {
+    const raw = record(item);
+    if (!raw) continue;
+    const id = text(raw.id);
+    const number = raw.ordinal;
+    if (!id || !isFiniteNumber(number) || episodes.has(id)) continue;
+
+    const streams: { quality: number; url: string }[] = [];
+    if (!restricted) {
+      for (const quality of QUALITY_LEVELS) {
+        const url = httpsUrl(raw[`hls_${quality}`]);
+        if (url) streams.push({ quality, url });
+      }
+    }
+
+    episodes.set(id, {
+      order: isFiniteNumber(raw.sort_order) ? raw.sort_order : number,
+      episode: { id, number, streams, name: text(raw.name) ?? text(raw.name_english), preview: imageUrl(raw.preview) },
+    });
+  }
+  return [...episodes.values()].sort((a, b) => a.order - b.order).map(({ episode }) => episode);
+}
+
+async function readJson(response: Response): Promise<unknown> {
+  if (!response.ok) throw new Error(`AniLiberty: HTTP ${response.status}`);
+  return response.json();
+}
+
+export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): AnimeSource {
+  return {
+    key: 'aniliberty',
+    name: 'AniLiberty',
+
+    async getCatalog(query, page, signal) {
+      const url = new URL(`${API}/catalog/releases`);
+      if (query) url.searchParams.set('f[search]', query);
+      url.searchParams.set('limit', '24');
+      url.searchParams.set('page', String(page));
+
+      const body = record(await readJson(await fetcher(url, { signal, credentials: 'omit' })));
+      const pagination = record(record(body?.meta)?.pagination);
+      if (!body || !pagination || !Array.isArray(body.data)
+        || !positiveInteger(pagination.current_page) || !positiveInteger(pagination.total_pages)) {
+        throw new Error('AniLiberty: invalid catalog response');
+      }
+
+      const items = new Map<string, CatalogEntry>();
+      const releases: unknown[] = body.data;
+      for (const item of releases) {
+        const release = record(item);
+        const entry = release && catalogEntry(release);
+        if (entry) items.set(entry.alias, entry);
+      }
+      return { items: [...items.values()], page: pagination.current_page, totalPages: pagination.total_pages };
+    },
+
+    async getTitle(alias, signal) {
+      if (!ALIAS.test(alias)) return null;
+      const response = await fetcher(new URL(`${API}/releases/${alias}`), { signal, credentials: 'omit' });
+      if (response.status === 404) return null;
+
+      const release = record(await readJson(response));
+      const entry = release && catalogEntry(release);
+      if (!release || !entry || (release.episodes != null && !Array.isArray(release.episodes))) {
+        throw new Error('AniLiberty: invalid release response');
+      }
+      const restriction = restrictionFor(release);
+      return {
+        ...entry,
+        description: text(release.description),
+        restriction,
+        episodes: episodesFrom(release.episodes ?? [], restriction !== undefined),
+      };
+    },
+  };
+}
