@@ -12,6 +12,25 @@ export interface CatalogResult {
   totalPages: number;
 }
 
+export interface CatalogFilters {
+  genre?: number;
+  year?: number;
+}
+
+export interface CatalogFilterOptions {
+  genres: readonly { id: number; name: string }[];
+  years: readonly number[];
+}
+
+export interface ScheduleEntry {
+  day: number;
+  alias: string;
+  name: string;
+  seasonComplete: boolean;
+  publishedEpisode?: { id: string; number: number };
+  nextEpisodeNumber?: number;
+}
+
 export interface Episode {
   id: string;
   number: number;
@@ -29,6 +48,8 @@ export interface AnimeTitle extends CatalogEntry {
 export interface AnimeSource {
   key: string;
   name: string;
-  getCatalog(query: string, page: number, signal: AbortSignal): Promise<CatalogResult>;
+  getCatalog(query: string, page: number, signal: AbortSignal, filters?: CatalogFilters): Promise<CatalogResult>;
+  getCatalogFilters?(signal: AbortSignal): Promise<CatalogFilterOptions>;
+  getSchedule?(signal: AbortSignal): Promise<readonly ScheduleEntry[]>;
   getTitle(alias: string, signal: AbortSignal): Promise<AnimeTitle | null>;
 }

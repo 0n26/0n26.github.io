@@ -30,3 +30,55 @@ it.each([
     episodes: [{ id: 'episode-1', streams: restriction ? [] : [{ quality: 720, url: validStream }] }],
   });
 });
+
+it('combines search, genre, and exact year before requesting the matching page', async () => {
+  const signal = new AbortController().signal;
+  const source = createAniLiberty(async (input, options) => {
+    const url = new URL(String(input));
+    expect(url.pathname).toBe('/api/v1/anime/catalog/releases');
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      'f[search]': 'Фрирен',
+      'f[genres]': '15',
+      'f[years][from_year]': '2023',
+      'f[years][to_year]': '2023',
+      limit: '24',
+      page: '2',
+    });
+    expect(options?.signal).toBe(signal);
+    return Response.json({
+      data: [{ alias: 'frieren', name: { main: 'Фрирен' }, year: 2023 }],
+      meta: { pagination: { current_page: 2, total_pages: 3 } },
+    });
+  });
+
+  await expect(source.getCatalog('Фрирен', 2, signal, { genre: 15, year: 2023 })).resolves.toMatchObject({
+    items: [{ alias: 'frieren', name: 'Фрирен', year: 2023 }],
+    page: 2,
+    totalPages: 3,
+  });
+});
+
+it('keeps published episode IDs and does not advertise a next episode for a finished season', async () => {
+  const source = createAniLiberty(async (input) => {
+    expect(String(input)).toBe('https://anilibria.top/api/v1/anime/schedule/week');
+    return Response.json({ data: [
+      { release: { alias: 'bad-day', publish_day: { value: 8 } } },
+      {
+        release: { alias: 'weekly-release', name: { main: 'Тайтл недели' }, publish_day: { value: 2 } },
+        full_season_is_released: false,
+        next_release_episode_number: 8,
+        published_release_episode: { id: 'ep-seven', ordinal: 7, hls_720: validStream },
+      },
+      {
+        release: { alias: 'completed-release', name: { main: 'Завершённый тайтл' }, publish_day: { value: 6 } },
+        full_season_is_released: true,
+        next_release_episode_number: 13,
+      },
+    ] });
+  });
+
+  await expect(source.getSchedule!(new AbortController().signal)).resolves.toEqual([
+    { day: 2, alias: 'weekly-release', name: 'Тайтл недели', seasonComplete: false, publishedEpisode: { id: 'ep-seven', number: 7 }, nextEpisodeNumber: 8 },
+    { day: 6, alias: 'completed-release', name: 'Завершённый тайтл', seasonComplete: true },
+  ]);
+});

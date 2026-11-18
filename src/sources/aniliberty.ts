@@ -1,4 +1,4 @@
-import type { AnimeSource, AnimeTitle, CatalogEntry, Episode } from './source';
+import type { AnimeSource, AnimeTitle, CatalogEntry, Episode, ScheduleEntry } from './source';
 
 const ORIGIN = 'https://anilibria.top';
 const API = `${ORIGIN}/api/v1/anime`;
@@ -103,14 +103,27 @@ async function readJson(response: Response): Promise<unknown> {
   return response.json();
 }
 
+async function readList(response: Response): Promise<unknown[]> {
+  const body = await readJson(response);
+  const items = Array.isArray(body) ? body : record(body)?.data;
+  if (!Array.isArray(items)) throw new Error('AniLiberty: invalid list response');
+  return items;
+}
+
 export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): AnimeSource {
   return {
     key: 'aniliberty',
     name: 'AniLiberty',
 
-    async getCatalog(query, page, signal) {
+    async getCatalog(query, page, signal, filters) {
       const url = new URL(`${API}/catalog/releases`);
       if (query) url.searchParams.set('f[search]', query);
+      if (positiveInteger(filters?.genre)) url.searchParams.set('f[genres]', String(filters.genre));
+      if (positiveInteger(filters?.year)) {
+        const year = String(filters.year);
+        url.searchParams.set('f[years][from_year]', year);
+        url.searchParams.set('f[years][to_year]', year);
+      }
       url.searchParams.set('limit', '24');
       url.searchParams.set('page', String(page));
 
@@ -129,6 +142,51 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
         if (entry) items.set(entry.alias, entry);
       }
       return { items: [...items.values()], page: pagination.current_page, totalPages: pagination.total_pages };
+    },
+
+    async getCatalogFilters(signal) {
+      const [genres, years] = await Promise.all(
+        ['genres', 'years'].map(async (field) =>
+          readList(await fetcher(`${API}/catalog/references/${field}`, { signal, credentials: 'omit' })),
+        ),
+      );
+      const names = new Map<number, string>();
+      for (const item of genres) {
+        const genre = record(item);
+        const name = text(genre?.name);
+        if (positiveInteger(genre?.id) && name) names.set(genre.id, name);
+      }
+      return {
+        genres: [...names].map(([id, name]) => ({ id, name })),
+        years: [...new Set(years.filter(positiveInteger))].sort((a, b) => b - a),
+      };
+    },
+
+    async getSchedule(signal) {
+      const items = await readList(await fetcher(`${API}/schedule/week`, { signal, credentials: 'omit' }));
+      const entries = new Map<string, ScheduleEntry>();
+      for (const item of items) {
+        const row = record(item);
+        const release = record(row?.release);
+        const day = record(release?.publish_day)?.value;
+        const entry = release && catalogEntry(release);
+        if (!entry || !positiveInteger(day) || day > 7) continue;
+
+        const seasonComplete = row?.full_season_is_released === true;
+        const episode = record(row?.published_release_episode);
+        const id = text(episode?.id);
+        const number = episode?.ordinal;
+        const next = row?.next_release_episode_number;
+        entries.set(`${day}:${entry.alias}`, {
+          day,
+          alias: entry.alias,
+          name: entry.name,
+          seasonComplete,
+          publishedEpisode: id && isFiniteNumber(number) && number > 0 ? { id, number } : undefined,
+          nextEpisodeNumber: !seasonComplete && positiveInteger(next) ? next : undefined,
+        });
+      }
+      return [...entries.values()];
     },
 
     async getTitle(alias, signal) {

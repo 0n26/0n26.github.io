@@ -7,6 +7,7 @@ import { UpdateNotice } from './UpdateNotice';
 import styles from './App.module.css';
 
 const TitlePage = lazy(() => import('../features/catalog/TitlePage').then(m => ({ default: m.TitlePage })));
+const SchedulePage = lazy(() => import('../features/catalog/SchedulePage').then(m => ({ default: m.SchedulePage })));
 const ChangelogPage = lazy(() => import('../features/changelog/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
 
 export function App() {
@@ -15,12 +16,13 @@ export function App() {
       <AppShell.Header className={styles.header}>
         <Container size="xl" h="100%">
           <Group h="100%" justify="space-between" wrap="nowrap" gap="xs">
-            <Link className={styles.brand} to="/">
+            <Link className={styles.brand} to="/" aria-label="Ночной сеанс">
               <img src="/icon.svg" alt="" width={36} height={36} />
-              <Text span fw={800} size="sm">Ночной сеанс</Text>
+              <Text span fw={800} size="sm" className={styles.brandName}>Ночной сеанс</Text>
             </Link>
             <Group component="nav" aria-label="Основная навигация" gap={4} wrap="nowrap">
               <NavLink to="/" end className={styles.navLink}>Каталог</NavLink>
+              <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
               <NavLink to="/changelog" className={styles.navLink}>Изменения</NavLink>
             </Group>
           </Group>
@@ -33,6 +35,7 @@ export function App() {
             <Routes>
               <Route index element={<CatalogPage />} />
               <Route path="anime/:source/:alias" element={<TitlePage />} />
+              <Route path="schedule" element={<SchedulePage />} />
               <Route path="changelog" element={<ChangelogPage />} />
               <Route path="*" element={
                 <Stack align="flex-start">
