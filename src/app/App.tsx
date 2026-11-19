@@ -14,9 +14,10 @@ const ChangelogPage = lazy(() => import('../features/changelog/ChangelogPage').t
 export function App() {
   const watch = useMatch('/anime/:source/:alias');
   const source = watch?.params.source ? getSource(watch.params.source) : undefined;
+  const catalog = useMatch('/');
   return (
-    <AppShell header={{ height: 76 }} className={styles.shell}>
-      <AppShell.Header className={styles.header}>
+    <AppShell header={{ height: catalog ? { base: 56, xs: 76 } : 76 }} className={styles.shell}>
+      <AppShell.Header className={`${styles.header} ${catalog ? styles.catalogHeader : ''}`}>
         <Container size="xl" h="100%">
           <Group h="100%" justify="space-between" wrap="nowrap" gap="xs">
             <Link className={styles.brand} to="/" aria-label="Ночной сеанс">
@@ -29,9 +30,9 @@ export function App() {
               </Link>
             ) : (
               <Group component="nav" aria-label="Основная навигация" gap={4} wrap="nowrap">
-                <NavLink to="/" end className={styles.navLink}>Каталог</NavLink>
+                <NavLink to="/" end className={`${styles.navLink} ${styles.secondaryLink}`}>Каталог</NavLink>
                 <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
-                <NavLink to="/changelog" className={styles.navLink}>Изменения</NavLink>
+                <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
               </Group>
             )}
           </Group>

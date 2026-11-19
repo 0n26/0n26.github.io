@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/0n26/0n26.github.io/compare/v0.2.0...v0.3.0) (2026-11-19)
+
+
+### Возможности
+
+* **catalog:** оформить каталог как адаптивную афишу ([#9](https://github.com/0n26/0n26.github.io/issues/9)) ([6a31b8b](https://github.com/0n26/0n26.github.io/commit/6a31b8b1bab3212107e0cacc084817374002e933))
+
 ## [0.2.0](https://github.com/0n26/0n26.github.io/compare/v0.1.1...v0.2.0) (2026-11-19)
 
 

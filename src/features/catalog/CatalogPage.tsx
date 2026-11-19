@@ -1,5 +1,5 @@
-import { Alert, AspectRatio, Button, Card, Group, Image, Loader, NativeSelect, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
-import { useCallback } from 'react';
+import { ActionIcon, Alert, AspectRatio, Button, Drawer, Group, Image, Loader, NativeSelect, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
+import { useCallback, useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { defaultSource, getSource, sources } from '../../sources';
@@ -36,42 +36,37 @@ export function CatalogPage() {
   function search(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const value = String(form.get('q') ?? '').trim();
-    changeCatalog(value, 1, getFilters ? {
-      genre: form.has('genre') ? positiveParam(String(form.get('genre'))) : genre,
-      year: form.has('year') ? positiveParam(String(form.get('year'))) : year,
-    } : {});
+    changeCatalog(String(form.get('q') ?? '').trim(), 1);
   }
 
   return (
     <Stack gap="lg">
-      <Stack gap={4}>
-        <Title order={1}>Каталог аниме</Title>
-        <Text c="dimmed">{source ? `Поиск аниме в каталоге ${source.name}.` : 'Выберите источник аниме.'}</Text>
-      </Stack>
-      {sources.length > 1 && (
-        <NativeSelect
-          label="Источник"
-          w={{ base: '100%', xs: 240 }}
-          value={source?.key ?? ''}
-          onChange={(event) => changeCatalog(query, 1, {}, event.currentTarget.value)}
-        >
-          {!source && <option value="" disabled>Выберите источник</option>}
-          {sources.map(({ key, name }) => <option key={key} value={key}>{name}</option>)}
-        </NativeSelect>
-      )}
-      <form role="search" aria-label="Поиск аниме" onSubmit={search} className={styles.search}>
-        {source && getFilters && <CatalogFilterFields key={source.key} load={getFilters} genre={genre} year={year} />}
-        <div className={styles.searchRow}>
-          <TextInput key={query} type="search" name="q" label="Название аниме" defaultValue={query} placeholder="Например, Фрирен" />
-          <Button type="submit">Найти</Button>
-        </div>
-        {(genre || year) && (
-          <Button variant="subtle" size="compact-sm" w="fit-content" onClick={() => changeCatalog(query, 1, {})}>
-            Сбросить фильтры
-          </Button>
+      <Group justify="space-between" gap="xs">
+        <Title order={1}>Каталог</Title>
+        {sources.length > 1 && (
+          <NativeSelect aria-label="Источник" size="md" radius="xl" value={source?.key ?? ''}
+            onChange={(event) => changeCatalog(query, 1, {}, event.currentTarget.value)}>
+            {!source && <option value="" disabled>Выберите источник</option>}
+            {sources.map(({ key, name }) => <option key={key} value={key}>{name}</option>)}
+          </NativeSelect>
         )}
-      </form>
+      </Group>
+      <div className={styles.searchRow}>
+        <form role="search" aria-label="Поиск аниме" onSubmit={search} className={styles.search}>
+          <TextInput key={query} type="search" name="q" aria-label="Название аниме" defaultValue={query}
+            placeholder="Название аниме" size="md" leftSectionWidth={44} leftSectionPointerEvents="auto"
+            leftSection={<ActionIcon type="submit" size={44} variant="subtle" color="gray" aria-label="Найти">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <circle cx="10" cy="10" r="6.5" /><path d="m15 15 6 6" />
+              </svg>
+            </ActionIcon>}
+          />
+        </form>
+        {source && getFilters && (
+          <CatalogFilterFields key={source.key} load={getFilters} genre={genre} year={year}
+            apply={(filters) => changeCatalog(query, 1, filters)} />
+        )}
+      </div>
       {source ? (
         <CatalogResults source={source} query={query} page={page} genre={genre} year={year} changePage={(next) => changeCatalog(query, next)} />
       ) : (
@@ -83,24 +78,61 @@ export function CatalogPage() {
   );
 }
 
-function CatalogFilterFields({ load, genre, year }: CatalogFilters & { load: NonNullable<AnimeSource['getCatalogFilters']> }) {
+function CatalogFilterFields({ load, genre, year, apply }: CatalogFilters & {
+  load: NonNullable<AnimeSource['getCatalogFilters']>;
+  apply: (filters: CatalogFilters) => void;
+}) {
+  const [opened, setOpened] = useState(false);
   const request = useSourceRequest(load);
-  if (request.status === 'loading') return <Text size="sm" c="dimmed" role="status">Загружаем фильтры…</Text>;
-  if (request.status === 'error') return <Text size="sm" c="dimmed" role="status">Не удалось загрузить фильтры.</Text>;
-  const { genres, years } = request.data;
+  const options = request.status === 'ready' ? request.data : undefined;
+  const genreName = options?.genres.find(({ id }) => id === genre)?.name ?? `Жанр ${genre}`;
+
+  function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    apply({ genre: positiveParam(String(form.get('genre'))), year: positiveParam(String(form.get('year'))) });
+    setOpened(false);
+  }
+
   return (
-    <SimpleGrid cols={2} spacing="xs">
-      <NativeSelect key={`genre:${genre ?? ''}`} name="genre" label="Жанр" defaultValue={genre ?? ''}>
-        <option value="">Все жанры</option>
-        {genre && !genres.some(({ id }) => id === genre) && <option value={genre}>Жанр недоступен</option>}
-        {genres.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-      </NativeSelect>
-      <NativeSelect key={`year:${year ?? ''}`} name="year" label="Год" defaultValue={year ?? ''}>
-        <option value="">Все годы</option>
-        {year && !years.includes(year) && <option value={year}>{year}</option>}
-        {years.map((item) => <option key={item} value={item}>{item}</option>)}
-      </NativeSelect>
-    </SimpleGrid>
+    <>
+      <ActionIcon size={44} variant="default" aria-label="Фильтры" title="Фильтры" aria-haspopup="dialog"
+        aria-expanded={opened} onClick={() => setOpened(true)}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+          <path d="M2 7h5m6 0h9M2 17h11m6 0h3" /><circle cx="10" cy="7" r="3" /><circle cx="16" cy="17" r="3" />
+        </svg>
+      </ActionIcon>
+      {(genre || year) && (
+        <Group gap="xs" w="100%" aria-label="Выбранные фильтры" role="group">
+          {genre && <Button variant="light" radius="xl" size="xs" aria-label={`Снять фильтр: ${genreName}`}
+            onClick={() => apply({ year })}>{genreName} ×</Button>}
+          {year && <Button variant="light" radius="xl" size="xs" aria-label={`Снять фильтр: ${year}`}
+            onClick={() => apply({ genre })}>{year} ×</Button>}
+        </Group>
+      )}
+      <Drawer opened={opened} onClose={() => setOpened(false)} title="Фильтры" position="right" size="sm"
+        closeButtonProps={{ 'aria-label': 'Закрыть фильтры' }}>
+        {request.status === 'loading' && <Text role="status">Загружаем фильтры…</Text>}
+        {request.status === 'error' && <Text role="alert">Не удалось загрузить фильтры.</Text>}
+        {opened && options && (
+          <form onSubmit={submit}>
+            <Stack>
+              <NativeSelect key={`genre:${genre ?? ''}`} name="genre" label="Жанр" defaultValue={genre ?? ''}>
+                <option value="">Все жанры</option>
+                {genre && !options.genres.some(({ id }) => id === genre) && <option value={genre}>Жанр недоступен</option>}
+                {options.genres.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+              </NativeSelect>
+              <NativeSelect key={`year:${year ?? ''}`} name="year" label="Год" defaultValue={year ?? ''}>
+                <option value="">Все годы</option>
+                {year && !options.years.includes(year) && <option value={year}>{year}</option>}
+                {options.years.map((item) => <option key={item} value={item}>{item}</option>)}
+              </NativeSelect>
+              <Button type="submit">Применить</Button>
+            </Stack>
+          </form>
+        )}
+      </Drawer>
+    </>
   );
 }
 
@@ -116,6 +148,7 @@ function CatalogResults({ source, query, page, genre, year, changePage }: Catalo
 
   return (
     <>
+      <Title order={2} size="h3">{query ? 'Результаты поиска' : 'В каталоге'}</Title>
       {request.status === 'loading' && (
         <Group role="status" gap="xs"><Loader size="xs" aria-hidden /> <Text>Загружаем каталог…</Text></Group>
       )}
@@ -133,17 +166,15 @@ function CatalogResults({ source, query, page, genre, year, changePage }: Catalo
               {query || genre || year ? 'Ничего не найдено. Измените запрос или фильтры.' : 'Каталог пуст.'}
             </Text>
           ) : (
-            <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }} spacing={{ base: 'xs', sm: 'md' }}>
+            <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }} spacing={{ base: 'sm', sm: 'md' }} verticalSpacing="lg">
               {request.data.items.map((entry) => (
-                <Card key={entry.alias} component={Link} to={`${routePrefix}/${encodeURIComponent(entry.alias)}`} withBorder p="xs" className={styles.card}>
-                  <Card.Section mb="xs">
-                    <AspectRatio ratio={2 / 3}>
-                      {entry.poster ? <Image src={entry.poster} alt="" loading="lazy" decoding="async" /> : <div className={styles.placeholder}>Нет постера</div>}
-                    </AspectRatio>
-                  </Card.Section>
-                  <Text fw={650} size="sm" className={styles.wrap}>{entry.name}</Text>
-                  {entry.year && <Text size="xs" c="dimmed">{entry.year}</Text>}
-                </Card>
+                <Link key={entry.alias} to={`${routePrefix}/${encodeURIComponent(entry.alias)}`} className={styles.card}>
+                  <AspectRatio ratio={2 / 3} className={styles.poster}>
+                    {entry.poster ? <Image src={entry.poster} alt="" loading="lazy" decoding="async" /> : <div className={styles.placeholder}>Нет постера</div>}
+                  </AspectRatio>
+                  <Text fw={650} lineClamp={2} className={styles.cardTitle}>{entry.name}</Text>
+                  {entry.year && <Text size="sm" c="dimmed">{entry.year}</Text>}
+                </Link>
               ))}
             </SimpleGrid>
           )}
