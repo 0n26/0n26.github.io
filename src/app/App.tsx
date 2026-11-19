@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 import { Link, NavLink, Route, Routes, useMatch } from 'react-router';
 import { version } from '../../package.json';
 import { CatalogPage } from '../features/catalog/CatalogPage';
+import { defaultSource, getSource } from '../sources';
 import { UpdateNotice } from './UpdateNotice';
 import styles from './App.module.css';
 
@@ -11,6 +12,8 @@ const SchedulePage = lazy(() => import('../features/catalog/SchedulePage').then(
 const ChangelogPage = lazy(() => import('../features/changelog/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
 
 export function App() {
+  const watch = useMatch('/anime/:source/:alias');
+  const source = watch?.params.source ? getSource(watch.params.source) : undefined;
   const catalog = useMatch('/');
   return (
     <AppShell header={{ height: catalog ? { base: 56, xs: 76 } : 76 }} className={styles.shell}>
@@ -19,13 +22,19 @@ export function App() {
           <Group h="100%" justify="space-between" wrap="nowrap" gap="xs">
             <Link className={styles.brand} to="/" aria-label="Ночной сеанс">
               <img src="/icon.svg" alt="" width={36} height={36} />
-              <Text span fw={800} size="sm" className={styles.brandName}>Ночной сеанс</Text>
+              <Text span fw={800} size="sm" className={watch ? undefined : styles.brandName}>Ночной сеанс</Text>
             </Link>
-            <Group component="nav" aria-label="Основная навигация" gap={4} wrap="nowrap">
-              <NavLink to="/" end className={`${styles.navLink} ${styles.secondaryLink}`}>Каталог</NavLink>
-              <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
-              <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
-            </Group>
+            {watch ? (
+              <Link to={source && source !== defaultSource ? `/?${new URLSearchParams({ source: source.key })}` : '/'} className={styles.navLink}>
+                ← В каталог{source && ` ${source.name}`}
+              </Link>
+            ) : (
+              <Group component="nav" aria-label="Основная навигация" gap={4} wrap="nowrap">
+                <NavLink to="/" end className={`${styles.navLink} ${styles.secondaryLink}`}>Каталог</NavLink>
+                <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
+                <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
+              </Group>
+            )}
           </Group>
         </Container>
       </AppShell.Header>

@@ -1,11 +1,12 @@
-import { Alert, AspectRatio, Button, Group, Image, Loader, Paper, Stack, Text, Title } from '@mantine/core';
+import { Alert, Group, Image, Loader, Stack, Text, Title } from '@mantine/core';
 import { useCallback } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
-import { defaultSource, getSource } from '../../sources';
+import { useParams, useSearchParams } from 'react-router';
+import { getSource } from '../../sources';
 import type { AnimeSource, AnimeTitle, Episode } from '../../sources/source';
 import { Player } from '../player/Player';
 import { useSourceRequest } from './useSourceRequest';
-import styles from './Catalog.module.css';
+import { EpisodeNavigation, episodeCaption } from './EpisodeNavigation';
+import styles from './TitlePage.module.css';
 
 const restrictionMessages = {
   geo: 'Источник ограничил просмотр в вашем регионе.',
@@ -46,62 +47,42 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
   }
 
   const title = request.data;
-  const episode = selectedId === null ? title.episodes[0] : title.episodes.find(({ id }) => id === selectedId);
+  const currentIndex = selectedId === null ? 0 : title.episodes.findIndex(({ id }) => id === selectedId);
+  const episode = title.episodes[currentIndex];
 
   return (
-    <>
-      <Paper withBorder p={{ base: 'md', sm: 'lg' }} className={styles.release}>
-        <AspectRatio ratio={2 / 3} className={styles.releasePoster}>
-          {title.poster ? <Image src={title.poster} alt="" /> : <div className={styles.placeholder}>Нет постера</div>}
-        </AspectRatio>
-        <Stack gap="xs">
-          <Text c="dimmed" size="sm">{source.name}{title.year && ` · ${title.year}`}</Text>
-          <Title order={1} className={styles.wrap}>{title.name}</Title>
-          {title.alternateName && <Text c="dimmed" className={styles.wrap}>{title.alternateName}</Text>}
-        </Stack>
-        {title.description && <Text className={styles.description}>{title.description}</Text>}
-      </Paper>
-      <section aria-labelledby="playback-heading" className={styles.section}>
-        <Title order={2} size="h3" id="playback-heading" className={styles.wrap}>
-          {episode ? `Эпизод ${episode.number}${episode.name ? ` · ${episode.name}` : ''}` : 'Просмотр'}
-        </Title>
+    <Stack gap="lg">
+      <Group gap="sm" align="baseline" className={styles.heading}>
+        <Title order={1}>{title.name}</Title>
+        {episode && <Text c="dimmed" size="lg" id="playback-heading">{episodeCaption(episode, currentIndex, title.episodes.length)}</Text>}
+      </Group>
+      <div className={styles.theater}>
         <Playback title={title} episode={episode} hasSelection={selectedId !== null} />
-      </section>
-      {title.episodes.length > 0 && (
-        <nav aria-labelledby="episodes-heading" className={styles.section}>
-          <Title order={2} size="h3" id="episodes-heading">Эпизоды</Title>
-          <ul className={styles.episodeList}>
-            {title.episodes.map((item) => (
-              <li key={item.id}>
-                <Button
-                  component={Link}
-                  to={`?${new URLSearchParams({ episode: item.id })}`}
-                  variant={item.id === episode?.id ? 'filled' : 'default'}
-                  aria-label={`Эпизод ${item.number}${item.name ? `: ${item.name}` : ''}`}
-                  aria-current={item.id === episode?.id ? 'true' : undefined}
-                  size="compact-md"
-                >
-                  {item.number}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
-    </>
+        {title.episodes.length > 0 && (
+          <EpisodeNavigation key={episode?.id ?? selectedId} episodes={title.episodes} currentIndex={currentIndex} />
+        )}
+      </div>
+      <details className={styles.about}>
+        <summary>
+          <strong>О тайтле</strong>
+          <span>{source.name}{title.year && ` · ${title.year}`}</span>
+        </summary>
+        <div className={styles.synopsis}>
+          {title.poster && <Image src={title.poster} alt="" w={90} radius="sm" loading="lazy" />}
+          <Stack gap="xs">
+            {title.alternateName && <Text fw={600}>{title.alternateName}</Text>}
+            <Text>{title.description ?? 'Источник не предоставил описание.'}</Text>
+          </Stack>
+        </div>
+      </details>
+    </Stack>
   );
 }
 
 export function TitlePage() {
   const { source: key, alias } = useParams<'source' | 'alias'>();
   const source = key ? getSource(key) : undefined;
-  const catalog = source && source !== defaultSource ? `/?${new URLSearchParams({ source: source.key })}` : '/';
-  return (
-    <Stack gap="lg" align="stretch">
-      <div><Button component={Link} to={catalog} variant="default" size="xs">← В каталог</Button></div>
-      {source && alias
-        ? <TitleContent source={source} alias={alias} />
-        : <Alert color="red" title="Источник не найден">Проверьте ссылку или выберите аниме в каталоге.</Alert>}
-    </Stack>
-  );
+  return source && alias
+    ? <TitleContent key={`${source.key}/${alias}`} source={source} alias={alias} />
+    : <Alert color="red" title="Источник не найден">Проверьте ссылку или выберите аниме в каталоге.</Alert>;
 }
