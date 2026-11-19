@@ -90,12 +90,12 @@ function CatalogFilterFields({ load, genre, year }: CatalogFilters & { load: Non
   const { genres, years } = request.data;
   return (
     <SimpleGrid cols={2} spacing="xs">
-      <NativeSelect key={genre ?? ''} name="genre" label="Жанр" defaultValue={genre ?? ''}>
+      <NativeSelect key={`genre:${genre ?? ''}`} name="genre" label="Жанр" defaultValue={genre ?? ''}>
         <option value="">Все жанры</option>
         {genre && !genres.some(({ id }) => id === genre) && <option value={genre}>Жанр недоступен</option>}
         {genres.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
       </NativeSelect>
-      <NativeSelect key={year ?? ''} name="year" label="Год" defaultValue={year ?? ''}>
+      <NativeSelect key={`year:${year ?? ''}`} name="year" label="Год" defaultValue={year ?? ''}>
         <option value="">Все годы</option>
         {year && !years.includes(year) && <option value={year}>{year}</option>}
         {years.map((item) => <option key={item} value={item}>{item}</option>)}
