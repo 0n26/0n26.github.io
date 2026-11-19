@@ -35,6 +35,16 @@
   color: #ffd27c;
 }
 
+@media (max-width: 25rem) {
+  .brandName {
+    display: none;
+  }
+
+  .header .navLink {
+    padding-inline: 0.25rem;
+  }
+}
+
 .page {
   padding-top: clamp(1.5rem, 5vw, 4rem);
 }

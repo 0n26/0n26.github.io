@@ -3,30 +3,44 @@ import { useCallback } from 'react';
 import type { SubmitEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { defaultSource, getSource, sources } from '../../sources';
-import type { AnimeSource } from '../../sources/source';
+import type { AnimeSource, CatalogFilters } from '../../sources/source';
 import { useSourceRequest } from './useSourceRequest';
 import styles from './Catalog.module.css';
+
+function positiveParam(value: string | null | undefined): number | undefined {
+  if (!value || !/^[1-9]\d*$/.test(value)) return;
+  const number = Number(value);
+  if (Number.isSafeInteger(number)) return number;
+}
 
 export function CatalogPage() {
   const [params, setParams] = useSearchParams();
   const sourceKey = params.get('source');
   const source = sourceKey === null ? defaultSource : getSource(sourceKey);
   const query = params.get('q')?.trim() ?? '';
-  const requestedPage = Number(params.get('page'));
-  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const page = positiveParam(params.get('page')) ?? 1;
+  const getFilters = source?.getCatalogFilters;
+  const genre = getFilters ? positiveParam(params.get('genre')) : undefined;
+  const year = getFilters ? positiveParam(params.get('year')) : undefined;
 
-  function changeCatalog(nextQuery: string, nextPage: number, nextSource = sourceKey) {
+  function changeCatalog(nextQuery: string, nextPage: number, filters: CatalogFilters = { genre, year }, nextSource = sourceKey) {
     const next = new URLSearchParams();
     if (nextQuery) next.set('q', nextQuery);
     if (nextPage > 1) next.set('page', String(nextPage));
+    if (filters.genre) next.set('genre', String(filters.genre));
+    if (filters.year) next.set('year', String(filters.year));
     if (nextSource) next.set('source', nextSource);
     setParams(next);
   }
 
   function search(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    const value = String(new FormData(event.currentTarget).get('q') ?? '').trim();
-    changeCatalog(value, 1);
+    const form = new FormData(event.currentTarget);
+    const value = String(form.get('q') ?? '').trim();
+    changeCatalog(value, 1, getFilters ? {
+      genre: form.has('genre') ? positiveParam(String(form.get('genre'))) : genre,
+      year: form.has('year') ? positiveParam(String(form.get('year'))) : year,
+    } : {});
   }
 
   return (
@@ -40,34 +54,63 @@ export function CatalogPage() {
           label="Источник"
           w={{ base: '100%', xs: 240 }}
           value={source?.key ?? ''}
-          onChange={(event) => changeCatalog(query, 1, event.currentTarget.value)}
+          onChange={(event) => changeCatalog(query, 1, {}, event.currentTarget.value)}
         >
           {!source && <option value="" disabled>Выберите источник</option>}
           {sources.map(({ key, name }) => <option key={key} value={key}>{name}</option>)}
         </NativeSelect>
       )}
       <form role="search" aria-label="Поиск аниме" onSubmit={search} className={styles.search}>
-        <TextInput key={query} type="search" name="q" label="Название аниме" defaultValue={query} placeholder="Например, Фрирен" />
-        <Button type="submit">Найти</Button>
+        {source && getFilters && <CatalogFilterFields key={source.key} load={getFilters} genre={genre} year={year} />}
+        <div className={styles.searchRow}>
+          <TextInput key={query} type="search" name="q" label="Название аниме" defaultValue={query} placeholder="Например, Фрирен" />
+          <Button type="submit">Найти</Button>
+        </div>
+        {(genre || year) && (
+          <Button variant="subtle" size="compact-sm" w="fit-content" onClick={() => changeCatalog(query, 1, {})}>
+            Сбросить фильтры
+          </Button>
+        )}
       </form>
       {source ? (
-        <CatalogResults source={source} query={query} page={page} changePage={(next) => changeCatalog(query, next)} />
+        <CatalogResults source={source} query={query} page={page} genre={genre} year={year} changePage={(next) => changeCatalog(query, next)} />
       ) : (
         <Alert color="red" title="Источник не найден">
-          <Button variant="light" size="xs" onClick={() => changeCatalog(query, 1, null)}>Открыть каталог {defaultSource.name}</Button>
+          <Button variant="light" size="xs" onClick={() => changeCatalog(query, 1, {}, null)}>Открыть каталог {defaultSource.name}</Button>
         </Alert>
       )}
     </Stack>
   );
 }
 
-function CatalogResults({ source, query, page, changePage }: {
+function CatalogFilterFields({ load, genre, year }: CatalogFilters & { load: NonNullable<AnimeSource['getCatalogFilters']> }) {
+  const request = useSourceRequest(load);
+  if (request.status === 'loading') return <Text size="sm" c="dimmed" role="status">Загружаем фильтры…</Text>;
+  if (request.status === 'error') return <Text size="sm" c="dimmed" role="status">Не удалось загрузить фильтры.</Text>;
+  const { genres, years } = request.data;
+  return (
+    <SimpleGrid cols={2} spacing="xs">
+      <NativeSelect key={genre ?? ''} name="genre" label="Жанр" defaultValue={genre ?? ''}>
+        <option value="">Все жанры</option>
+        {genre && !genres.some(({ id }) => id === genre) && <option value={genre}>Жанр недоступен</option>}
+        {genres.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+      </NativeSelect>
+      <NativeSelect key={year ?? ''} name="year" label="Год" defaultValue={year ?? ''}>
+        <option value="">Все годы</option>
+        {year && !years.includes(year) && <option value={year}>{year}</option>}
+        {years.map((item) => <option key={item} value={item}>{item}</option>)}
+      </NativeSelect>
+    </SimpleGrid>
+  );
+}
+
+function CatalogResults({ source, query, page, genre, year, changePage }: CatalogFilters & {
   source: AnimeSource;
   query: string;
   page: number;
   changePage: (page: number) => void;
 }) {
-  const load = useCallback((signal: AbortSignal) => source.getCatalog(query, page, signal), [source, query, page]);
+  const load = useCallback((signal: AbortSignal) => source.getCatalog(query, page, signal, { genre, year }), [source, query, page, genre, year]);
   const request = useSourceRequest(load);
   const routePrefix = `/anime/${encodeURIComponent(source.key)}`;
 
@@ -86,7 +129,9 @@ function CatalogResults({ source, query, page, changePage }: {
               <Button variant="light" size="xs" onClick={() => changePage(1)}>К первой странице</Button>
             </Alert>
           ) : request.data.items.length === 0 ? (
-            <Text role="status" c="dimmed">{query ? 'Ничего не найдено. Попробуйте изменить запрос.' : 'Каталог пуст.'}</Text>
+            <Text role="status" c="dimmed">
+              {query || genre || year ? 'Ничего не найдено. Измените запрос или фильтры.' : 'Каталог пуст.'}
+            </Text>
           ) : (
             <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }} spacing={{ base: 'xs', sm: 'md' }}>
               {request.data.items.map((entry) => (
