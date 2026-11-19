@@ -1,6 +1,11 @@
 .player {
+  display: grid;
+  container-type: inline-size;
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
-  background: var(--mantine-color-body);
+  background: #111015;
+  color: #faf7fc;
 }
 
 .stage {
@@ -24,6 +29,36 @@
   pointer-events: none;
 }
 
+.centerPlay {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  translate: -50% -50%;
+  font-size: 1.65rem;
+  box-shadow: 0 3px 24px #0009;
+}
+
+.error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #100d15dd;
+  text-align: center;
+}
+
+.controls {
+  position: relative;
+  padding: 0.25rem 0.75rem 0.5rem;
+}
+
+.toolbar svg {
+  font-size: 1.2rem;
+}
+
 .seek {
   flex: 1;
   min-width: 0;
@@ -35,19 +70,43 @@
 }
 
 .volume {
-  width: 5.5rem;
+  width: clamp(2.5rem, 11cqi, 5.5rem);
+}
+
+.quality {
+  margin-inline-start: auto;
+}
+
+/* Keep touch controls off the picture instead of relying on hover to reveal them. */
+@container (min-width: 34rem) {
+  .stage,
+  .controls {
+    grid-area: 1 / 1;
+  }
+
+  .controls {
+    align-self: end;
+    padding: 1.25rem 1rem 0.5rem;
+    background: linear-gradient(transparent, #0a090de6 42%);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .player[data-playing]:not(:hover):not(:focus-within) .controls {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
 }
 
 .player:fullscreen {
-  display: flex;
-  flex-direction: column;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   border: 0;
   border-radius: 0;
   overflow: auto;
 }
 
 .player:fullscreen .stage {
-  flex: 1 0 0;
+  height: 100%;
   min-height: 0;
   aspect-ratio: auto;
 }

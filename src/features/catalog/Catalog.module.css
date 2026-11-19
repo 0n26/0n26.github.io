@@ -36,53 +36,6 @@
   font-size: var(--mantine-font-size-xs);
 }
 
-.wrap,
-.description {
+.wrap {
   overflow-wrap: anywhere;
-}
-
-.release {
-  display: grid;
-  grid-template-columns: clamp(5rem, 16vw, 10rem) minmax(0, 1fr);
-  align-items: start;
-  gap: var(--mantine-spacing-md);
-}
-
-.releasePoster {
-  overflow: hidden;
-  border-radius: var(--mantine-radius-sm);
-}
-
-.description {
-  grid-column: 1 / -1;
-  white-space: pre-line;
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--mantine-spacing-sm);
-}
-
-.episodeList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mantine-spacing-xs);
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-@media (min-width: $mantine-breakpoint-sm) {
-  .release {
-    grid-template-rows: auto 1fr;
-  }
-
-  .releasePoster {
-    grid-row: span 2;
-  }
-
-  .description {
-    grid-column: 2;
-  }
 }

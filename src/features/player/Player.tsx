@@ -1,4 +1,4 @@
-import { Alert, Button, Group, NativeSelect, Paper, Slider, Stack, Switch, Text } from '@mantine/core';
+import { ActionIcon, Alert, Button, Group, NativeSelect, Paper, Slider, Stack, Text } from '@mantine/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { enhanceVideo } from './anime4k';
 import { attachHls, mediaDuration, playbackPoint } from './media';
@@ -16,6 +16,25 @@ function formatTime(time: number) {
   const minutes = String(Math.floor(total / 60) % 60);
   const seconds = String(total % 60).padStart(2, '0');
   return hours ? `${hours}:${minutes.padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
+}
+
+const glyphs = {
+  play: 'M7 4 L21 12 L7 20 Z',
+  pause: 'M5 4 H9 V20 H5 Z M15 4 H19 V20 H15 Z',
+  sound: 'M3 9 H7 L12 5 V19 L7 15 H3 Z M16 8 Q20 12 16 16 M19 5 Q26 12 19 19',
+  muted: 'M3 9 H7 L12 5 V19 L7 15 H3 Z M16 9 L22 15 M22 9 L16 15',
+  expand: 'M3 9 V3 H9 M15 3 H21 V9 M21 15 V21 H15 M9 21 H3 V15',
+  collapse: 'M9 3 V9 H3 M15 3 V9 H21 M21 15 H15 V21 M3 15 H9 V21',
+};
+
+function Glyph({ name }: { name: keyof typeof glyphs }) {
+  return (
+    <svg aria-hidden="true" width="1em" height="1em" viewBox="0 0 24 24"
+      fill={name === 'play' || name === 'pause' ? 'currentColor' : 'none'}
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d={glyphs[name]} />
+    </svg>
+  );
 }
 
 export function Player({ streams, poster }: PlayerProps) {
@@ -72,6 +91,8 @@ export function Player({ streams, poster }: PlayerProps) {
     setPlayNotice(undefined);
 
     const fail = (message: string) => {
+      // Aborting HLS detaches the media before the viewer can choose another quality.
+      pending.current = playbackPoint(video, pending.current);
       controller.abort();
       video.pause();
       setMediaError(message);
@@ -142,10 +163,23 @@ export function Player({ streams, poster }: PlayerProps) {
     if (video) setPlaying(!video.paused && !video.ended);
   }
 
+  function togglePlayback() {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused || video.ended) startPlayback();
+    else video.pause();
+  }
+
   if (!stream) return <Alert color="yellow">Нет доступных видеопотоков.</Alert>;
+  const canRetry480 = mediaError && Number(stream.value) > 480 &&
+    options.some((option) => option.value === '480' && option.url !== stream.url);
+  const playLabel = playing ? 'Пауза' : 'Воспроизвести';
+  const soundLabel = muted ? 'Включить звук' : 'Выключить звук';
+  const fullscreenLabel = fullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран';
 
   return (
-    <Paper ref={rootRef} className={classes.player} withBorder radius="lg" role="region" aria-label="Видеоплеер">
+    <Paper ref={rootRef} className={classes.player} data-playing={playing || undefined}
+      withBorder radius="lg" role="region" aria-label="Видеоплеер">
       <div className={classes.stage}>
         <video
           ref={videoRef}
@@ -167,11 +201,23 @@ export function Player({ streams, poster }: PlayerProps) {
         {/* AniLiberty thumbnails do not share the video CDN's CORS policy. */}
         {poster && !playing && time === 0 && <img className={classes.poster} src={poster} alt="" />}
         {enhanced && !mediaError && <canvas key={url} ref={canvasRef} className={classes.canvas} aria-hidden="true" hidden />}
+        {mediaError ? (
+          <div className={classes.error}>
+            <Text role="alert" size="sm">{mediaError}</Text>
+            {canRetry480 && <Button size="xs" onClick={() => changeQuality('480')}>Попробовать 480p</Button>}
+          </div>
+        ) : !playing && (
+          <ActionIcon className={classes.centerPlay} size="4rem" radius="50%" disabled={!ready}
+            aria-label="Воспроизвести видео" onClick={togglePlayback}>
+            <Glyph name="play" />
+          </ActionIcon>
+        )}
       </div>
-      <Stack gap="sm" p="sm" role="group" aria-label="Управление воспроизведением">
+      <div className={classes.controls} role="group" aria-label="Управление воспроизведением">
         <Group gap="sm" wrap="nowrap">
           <Slider
             className={classes.seek}
+            size="xs"
             thumbLabel="Позиция воспроизведения"
             thumbValueText={formatTime}
             label={formatTime}
@@ -187,73 +233,65 @@ export function Player({ streams, poster }: PlayerProps) {
               setScrubbing(undefined);
             }}
           />
-          <Text size="sm" className={classes.clock}>{formatTime(scrubbing ?? time)} / {formatTime(duration)}</Text>
+          <Text size="xs" className={classes.clock}>{formatTime(scrubbing ?? time)} / {formatTime(duration)}</Text>
         </Group>
-        <Group gap="xs" justify="space-between">
-          <Group gap="xs">
-            <Button size="compact-sm" disabled={!ready || !!mediaError} onClick={() => {
-              const video = videoRef.current;
-              if (!video) return;
-              if (video.paused || video.ended) startPlayback();
-              else video.pause();
-            }}>
-              {playing ? 'Пауза' : 'Воспроизвести'}
-            </Button>
-            <Button size="compact-sm" variant="default" onClick={() => {
+        <Group gap={4} className={classes.toolbar}>
+          <ActionIcon size="lg" variant="subtle" color="gray" aria-label={playLabel} title={playLabel}
+            disabled={!ready || !!mediaError} onClick={togglePlayback}>
+            <Glyph name={playing ? 'pause' : 'play'} />
+          </ActionIcon>
+          <ActionIcon size="lg" variant="subtle" color="gray" aria-label={soundLabel} title={soundLabel}
+            onClick={() => {
               const video = videoRef.current;
               if (video) video.muted = !video.muted;
             }}>
-              {muted ? 'Включить звук' : 'Выключить звук'}
-            </Button>
-            <Slider
-              className={classes.volume}
-              size="sm"
-              label={(value) => `${value}%`}
-              thumbLabel="Громкость"
-              thumbValueText={(value) => `${value}%`}
-              value={muted ? 0 : Math.round(volume * 100)}
-              onChange={(value) => {
-                const video = videoRef.current;
-                if (!video) return;
-                video.muted = value === 0;
-                if (value > 0) video.volume = value / 100;
-              }}
-            />
-          </Group>
-          <Group gap="xs">
-            <NativeSelect
-              size="xs"
-              aria-label="Качество видео"
-              data={options}
-              value={stream.value}
-              onChange={(event) => changeQuality(event.currentTarget.value)}
-            />
-            <Switch
-              size="sm"
-              label="Улучшение Anime4K"
-              checked={enhanced}
-              disabled={!!mediaError}
-              onChange={(event) => {
-                setEnhancementNotice(undefined);
-                setEnhanced(event.currentTarget.checked);
-              }}
-            />
-            {canFullscreen && (
-              <Button size="compact-sm" variant="default" onClick={() => void toggleFullscreen()}>
-                {fullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'}
-              </Button>
-            )}
-          </Group>
+            <Glyph name={muted ? 'muted' : 'sound'} />
+          </ActionIcon>
+          <Slider
+            className={classes.volume}
+            size="xs"
+            label={(value) => `${value}%`}
+            thumbLabel="Громкость"
+            thumbValueText={(value) => `${value}%`}
+            value={muted ? 0 : Math.round(volume * 100)}
+            onChange={(value) => {
+              const video = videoRef.current;
+              if (!video) return;
+              video.muted = value === 0;
+              if (value > 0) video.volume = value / 100;
+            }}
+          />
+          <NativeSelect
+            className={classes.quality}
+            size="xs"
+            aria-label="Качество видео"
+            data={options}
+            value={stream.value}
+            onChange={(event) => changeQuality(event.currentTarget.value)}
+          />
+          <Button size="xs" variant={enhanced ? 'light' : 'subtle'} color={enhanced ? 'yellow' : 'gray'}
+            aria-label="Улучшение Anime4K" aria-pressed={enhanced} disabled={!!mediaError}
+            onClick={() => {
+              setEnhancementNotice(undefined);
+              setEnhanced(!enhanced);
+            }}>
+            Anime4K
+          </Button>
+          {canFullscreen && (
+            <ActionIcon size="lg" variant="subtle" color="gray" aria-label={fullscreenLabel} title={fullscreenLabel}
+              onClick={() => void toggleFullscreen()}>
+              <Glyph name={fullscreen ? 'collapse' : 'expand'} />
+            </ActionIcon>
+          )}
         </Group>
-        {mediaError && <Alert color="red" role="alert">{mediaError}</Alert>}
-        {(playNotice || fullscreenNotice || enhancementNotice) && (
-          <Stack gap={2} role="status">
-            {playNotice && <Text size="sm" c="dimmed">{playNotice}</Text>}
-            {fullscreenNotice && <Text size="sm" c="dimmed">{fullscreenNotice}</Text>}
-            {enhancementNotice && <Text size="sm" c="dimmed">{enhancementNotice}</Text>}
-          </Stack>
-        )}
-      </Stack>
+      </div>
+      {(playNotice || fullscreenNotice || enhancementNotice) && (
+        <Stack gap={2} p="xs" role="status">
+          {playNotice && <Text size="sm">{playNotice}</Text>}
+          {fullscreenNotice && <Text size="sm">{fullscreenNotice}</Text>}
+          {enhancementNotice && <Text size="sm">{enhancementNotice}</Text>}
+        </Stack>
+      )}
     </Paper>
   );
 }

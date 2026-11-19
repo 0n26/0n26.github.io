@@ -1,0 +1,47 @@
+.heading,
+.about {
+  overflow-wrap: anywhere;
+}
+
+.theater {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--mantine-spacing-md);
+}
+
+@media (min-width: $mantine-breakpoint-sm) {
+  .theater {
+    grid-template-columns: minmax(0, 1fr) clamp(17rem, 28%, 20rem);
+  }
+
+  .theater > :only-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.about {
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.about summary {
+  padding-block: var(--mantine-spacing-md);
+  cursor: pointer;
+}
+
+.about summary span {
+  float: right;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-sm);
+}
+
+.synopsis {
+  display: flex;
+  align-items: start;
+  gap: var(--mantine-spacing-md);
+  white-space: pre-line;
+}
+
+.synopsis img {
+  flex: none;
+}
