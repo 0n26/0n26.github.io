@@ -23,7 +23,7 @@ function Playback({ title, episode, hasSelection }: { title: AnimeTitle; episode
       : <Text role="status" c="dimmed">У этого аниме пока нет эпизодов.</Text>;
   }
   if (episode.streams.length === 0) {
-    return <Alert color="gray" title="Видео недоступно">Источник не предоставил HLS-поток для этого эпизода.</Alert>;
+    return <Alert color="gray" title="Видео недоступно">Источник не предоставил видео для этого эпизода.</Alert>;
   }
   const poster = episode.preview ?? title.poster;
   return <Player key={episode.id} streams={episode.streams} {...(poster ? { poster } : {})} />;

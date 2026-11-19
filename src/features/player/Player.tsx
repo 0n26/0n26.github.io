@@ -89,7 +89,8 @@ export function Player({ streams, poster }: PlayerProps) {
       setReady(true);
       if (saved?.playing) startPlayback();
     }, { signal, once: true });
-    void attachHls(video, url, signal, pending.current?.time ?? -1, fail);
+    if (new URL(url).pathname.toLowerCase().endsWith('.mp4')) video.src = url;
+    else void attachHls(video, url, signal, pending.current?.time ?? -1, fail);
 
     return () => {
       controller.abort();

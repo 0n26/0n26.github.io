@@ -1,4 +1,5 @@
 import type { AnimeSource, AnimeTitle, CatalogEntry, Episode, ScheduleEntry } from './source';
+import { positiveInteger, record, text } from './values';
 
 const ORIGIN = 'https://anilibria.top';
 const API = `${ORIGIN}/api/v1/anime`;
@@ -6,22 +7,8 @@ const QUALITY_LEVELS = [480, 720, 1080] as const;
 const IMAGE_SIZES = ['preview', 'src', 'thumbnail'] as const;
 const ALIAS = /^[a-z0-9_-]+$/i;
 
-function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined;
-}
-
-function text(value: unknown): string | undefined {
-  return typeof value === 'string' ? value.trim() || undefined : undefined;
-}
-
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
-}
-
-function positiveInteger(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1;
 }
 
 function httpsUrl(value: unknown, allowRelative = false): string | undefined {
