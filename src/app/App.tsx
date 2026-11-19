@@ -1,6 +1,6 @@
 import { AppShell, Button, Container, Group, Stack, Text, Title } from '@mantine/core';
 import { lazy, Suspense } from 'react';
-import { Link, NavLink, Route, Routes } from 'react-router';
+import { Link, NavLink, Route, Routes, useMatch } from 'react-router';
 import { version } from '../../package.json';
 import { CatalogPage } from '../features/catalog/CatalogPage';
 import { UpdateNotice } from './UpdateNotice';
@@ -11,9 +11,10 @@ const SchedulePage = lazy(() => import('../features/catalog/SchedulePage').then(
 const ChangelogPage = lazy(() => import('../features/changelog/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
 
 export function App() {
+  const catalog = useMatch('/');
   return (
-    <AppShell header={{ height: 76 }} className={styles.shell}>
-      <AppShell.Header className={styles.header}>
+    <AppShell header={{ height: catalog ? { base: 56, xs: 76 } : 76 }} className={styles.shell}>
+      <AppShell.Header className={`${styles.header} ${catalog ? styles.catalogHeader : ''}`}>
         <Container size="xl" h="100%">
           <Group h="100%" justify="space-between" wrap="nowrap" gap="xs">
             <Link className={styles.brand} to="/" aria-label="Ночной сеанс">
@@ -21,9 +22,9 @@ export function App() {
               <Text span fw={800} size="sm" className={styles.brandName}>Ночной сеанс</Text>
             </Link>
             <Group component="nav" aria-label="Основная навигация" gap={4} wrap="nowrap">
-              <NavLink to="/" end className={styles.navLink}>Каталог</NavLink>
+              <NavLink to="/" end className={`${styles.navLink} ${styles.secondaryLink}`}>Каталог</NavLink>
               <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
-              <NavLink to="/changelog" className={styles.navLink}>Изменения</NavLink>
+              <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
             </Group>
           </Group>
         </Container>

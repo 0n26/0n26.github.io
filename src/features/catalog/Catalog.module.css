@@ -1,29 +1,42 @@
-.search {
+.searchRow {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--mantine-spacing-xs);
-  max-width: 36rem;
 }
 
-.searchRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: var(--mantine-spacing-xs);
+.search {
+  flex: 1;
+  min-width: 0;
 }
 
 .card {
+  min-width: 0;
   color: var(--mantine-color-text);
   text-decoration: none;
+  border-radius: var(--mantine-radius-md);
 }
 
-.card:hover {
-  border-color: var(--mantine-primary-color-filled);
+.card:hover .cardTitle {
+  color: var(--mantine-primary-color-light-color);
 }
 
 .card:focus-visible {
   outline: 2px solid var(--mantine-primary-color-filled);
   outline-offset: 2px;
+}
+
+.poster {
+  overflow: hidden;
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-default-hover);
+}
+
+.cardTitle {
+  margin-top: var(--mantine-spacing-xs);
+  line-height: 1.35;
+  min-height: 2.7em;
+  overflow-wrap: anywhere;
 }
 
 .placeholder {

@@ -45,6 +45,20 @@
   }
 }
 
+@media (max-width: $mantine-breakpoint-xs) {
+  .catalogHeader .brandName {
+    display: inline;
+  }
+
+  .catalogHeader .secondaryLink {
+    display: none;
+  }
+
+  .catalogHeader nav a::after {
+    content: ' →' / '';
+  }
+}
+
 .page {
   padding-top: clamp(1.5rem, 5vw, 4rem);
 }
