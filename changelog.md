@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/0n26/0n26.github.io/compare/v0.1.0...v0.1.1) (2026-11-19)
+
+
+### Исправления
+
+* **catalog:** устранить конфликт ключей жанра и года ([#6](https://github.com/0n26/0n26.github.io/issues/6)) ([7171e69](https://github.com/0n26/0n26.github.io/commit/7171e695a2d50078aa6ec2aa8ccdce618dd2cc8e))
+
 ## [0.1.0](https://github.com/0n26/0n26.github.io/compare/v0.0.1...v0.1.0) (2026-11-19)
 
 
