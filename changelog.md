@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/0n26/0n26.github.io/compare/v0.3.0...v0.4.0) (2026-11-19)
+
+
+### Возможности
+
+* **player:** открыть эпизод в адаптивном кинозале ([#11](https://github.com/0n26/0n26.github.io/issues/11)) ([f2995b3](https://github.com/0n26/0n26.github.io/commit/f2995b37a1d44eb1f3956a2acb9107291c79059c))
+
 ## [0.3.0](https://github.com/0n26/0n26.github.io/compare/v0.2.0...v0.3.0) (2026-11-19)
 
 
