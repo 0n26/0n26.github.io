@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { createAnimeVost } from './animevost';
 
 const signal = new AbortController().signal;
@@ -12,6 +12,26 @@ it('paginates unpaged search results, independently of the zero count returned b
   await expect(source.getCatalog('A&B', 2, signal)).resolves.toMatchObject({
     items: [{ alias: '25', name: 'Тайтл 25' }], page: 2, totalPages: 2,
   });
+});
+
+it('loads the catalog without URL.parse and ignores a malformed poster without losing the title', async () => {
+  const source = createAnimeVost(async () => Response.json({
+    state: { status: 'ok', count: 2 }, data: [
+      { id: 1, title: 'Первый', urlImagePreview: 'http://animevost.org/uploads/posts/1.jpg' },
+      { id: 2, title: 'Второй', urlImagePreview: 'invalid url' },
+    ],
+  }));
+  class LegacyURL extends URL {}
+  Object.defineProperty(LegacyURL, 'parse', { value: undefined });
+  vi.stubGlobal('URL', LegacyURL);
+  try {
+    const { items } = await source.getCatalog('', 1, signal);
+    expect(items.map(({ alias, poster }) => [alias, poster])).toEqual([
+      ['1', 'https://animevost.org/uploads/posts/1.jpg'], ['2', undefined],
+    ]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 
 it('only exposes provider MP4s over HTTPS, keeps special episodes and rejects foreign image URLs', async () => {

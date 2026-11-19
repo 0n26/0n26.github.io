@@ -8,8 +8,14 @@ const previews = ['media.animetop.info'];
 const videos = ['video.animetop.info'];
 
 function asset(value: unknown, hosts: readonly string[], path: RegExp): URL | undefined {
-  const url = typeof value === 'string' ? URL.parse(value) : null;
-  if (!url || !['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.port
+  if (typeof value !== 'string') return;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return;
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.port
     || !hosts.includes(url.hostname) || !path.test(url.pathname)) return;
   url.protocol = 'https:';
   return url;
