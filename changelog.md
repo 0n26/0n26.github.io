@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/0n26/0n26.github.io/compare/v0.1.1...v0.2.0) (2026-11-19)
+
+
+### Возможности
+
+* **sources:** добавить каталог и MP4-эпизоды AnimeVost ([#5](https://github.com/0n26/0n26.github.io/issues/5)) ([ca65c30](https://github.com/0n26/0n26.github.io/commit/ca65c3054205d8afc3a074ce13e2ea08db9f667c))
+
 ## [0.1.1](https://github.com/0n26/0n26.github.io/compare/v0.1.0...v0.1.1) (2026-11-19)
 
 
