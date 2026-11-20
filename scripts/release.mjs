@@ -154,7 +154,6 @@ function publish() {
   const latest = command('gh', ['release', 'view', '--json', 'tagName', '--jq', '.tagName']).trim();
   if (!latest.startsWith('v') || !versionPattern.test(latest.slice(1))) throw new Error(`Неизвестный тег релиза: ${latest}`);
   let version = latest.slice(1);
-  let tag;
   const revisions = git('log', '--first-parent', '--reverse', '--format=%H', `${latest}..HEAD`, '--', 'package.json');
   for (const sha of revisions ? revisions.split('\n') : []) {
     const next = gitVersion(sha);
@@ -167,11 +166,10 @@ function publish() {
     if (!versionPattern.test(next) || !entry.startsWith(`## [${next}]`)) {
       throw new Error(`Для ${sha} нет заметок версии ${next}.`);
     }
-    tag = `v${next}`;
+    const tag = `v${next}`;
     command('gh', ['release', 'create', tag, '--target', sha, '--title', tag, '--notes-file', '-'], entry.trimEnd());
     version = next;
   }
-  if (tag) appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`);
 }
 
 if (import.meta.main) {
