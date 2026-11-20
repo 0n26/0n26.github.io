@@ -26,6 +26,7 @@ export interface ScheduleEntry {
   day: number;
   alias: string;
   name: string;
+  poster?: string;
   seasonComplete: boolean;
   publishedEpisode?: { id: string; number: number };
   nextEpisodeNumber?: number;

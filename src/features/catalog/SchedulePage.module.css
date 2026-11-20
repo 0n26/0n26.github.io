@@ -1,0 +1,88 @@
+.guide {
+  max-width: 58rem;
+  margin-inline: auto;
+}
+
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-lg);
+  background: var(--mantine-color-body);
+}
+
+.week a {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  color: var(--mantine-color-text);
+  border-radius: var(--mantine-radius-md);
+  text-decoration: none;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.week a:hover { background: var(--mantine-color-default-hover); }
+.week a[aria-current] {
+  font-weight: 700;
+  background: var(--mantine-primary-color-light);
+  color: var(--mantine-primary-color-light-color);
+}
+
+.todayDot {
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.longDay { display: none; }
+.list { list-style: none; padding: 0; margin: 0; }
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--mantine-spacing-md);
+  padding-block: var(--mantine-spacing-sm);
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.poster {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  width: 3.5rem;
+  aspect-ratio: 2 / 3;
+  background: var(--mantine-color-default-hover);
+  color: var(--mantine-color-dimmed);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.poster img { width: 100%; height: 100%; object-fit: cover; }
+.info { grid-column: 2; overflow-wrap: anywhere; }
+.title, .watch { color: inherit; text-decoration: none; }
+.title { font-weight: 650; }
+.title:hover, .watch:hover { text-decoration: underline; }
+.watch {
+  grid-column: 2;
+  justify-self: start;
+  padding-block: 0.4rem;
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+  color: var(--mantine-primary-color-light-color);
+}
+
+.guide a:focus-visible { outline: 2px solid var(--mantine-primary-color-filled); outline-offset: 2px; }
+
+@media (min-width: $mantine-breakpoint-sm) {
+  .longDay { display: inline; }
+  .shortDay { display: none; }
+  .row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .poster { grid-row: auto; }
+  .watch { grid-column: 3; }
+}

@@ -64,7 +64,7 @@ it('keeps published episode IDs and does not advertise a next episode for a fini
     return Response.json({ data: [
       { release: { alias: 'bad-day', publish_day: { value: 8 } } },
       {
-        release: { alias: 'weekly-release', name: { main: 'Тайтл недели' }, publish_day: { value: 2 } },
+        release: { alias: 'weekly-release', name: { main: 'Тайтл недели' }, publish_day: { value: 2 }, poster: { preview: '/images/week.jpg' } },
         full_season_is_released: false,
         next_release_episode_number: 8,
         published_release_episode: { id: 'ep-seven', ordinal: 7, hls_720: validStream },
@@ -78,7 +78,7 @@ it('keeps published episode IDs and does not advertise a next episode for a fini
   });
 
   await expect(source.getSchedule!(new AbortController().signal)).resolves.toEqual([
-    { day: 2, alias: 'weekly-release', name: 'Тайтл недели', seasonComplete: false, publishedEpisode: { id: 'ep-seven', number: 7 }, nextEpisodeNumber: 8 },
+    { day: 2, alias: 'weekly-release', name: 'Тайтл недели', poster: 'https://anilibria.top/images/week.jpg', seasonComplete: false, publishedEpisode: { id: 'ep-seven', number: 7 }, nextEpisodeNumber: 8 },
     { day: 6, alias: 'completed-release', name: 'Завершённый тайтл', seasonComplete: true },
   ]);
 });
