@@ -168,6 +168,7 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
           day,
           alias: entry.alias,
           name: entry.name,
+          poster: entry.poster,
           seasonComplete,
           publishedEpisode: id && isFiniteNumber(number) && number > 0 ? { id, number } : undefined,
           nextEpisodeNumber: !seasonComplete && positiveInteger(next) ? next : undefined,
