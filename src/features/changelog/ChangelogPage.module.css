@@ -1,0 +1,74 @@
+.journal {
+  max-width: 54rem;
+  margin-inline: auto;
+  overflow-wrap: anywhere;
+}
+
+.entries {
+  display: grid;
+  gap: var(--mantine-spacing-sm);
+}
+
+.release {
+  min-width: 0;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-lg);
+  background: var(--mantine-color-body);
+}
+
+.release[data-current] { border-inline-start: 3px solid var(--mantine-primary-color-filled); }
+.release summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: inherit;
+  cursor: pointer;
+  list-style: none;
+}
+.release summary::-webkit-details-marker { display: none; }
+.release summary::after {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: none;
+  border: solid var(--mantine-color-dimmed);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+.release[open] summary::after { transform: rotate(225deg); }
+.release summary:hover { background: var(--mantine-color-default-hover); }
+.journal :focus-visible { outline: 2px solid var(--mantine-primary-color-filled); outline-offset: 2px; }
+
+.release h2 {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  font-size: 1.25rem;
+}
+.number { font-variant-numeric: tabular-nums; }
+.current { color: var(--mantine-primary-color-light-color); font-size: 0.8rem; }
+.release time { flex-basis: 100%; color: var(--mantine-color-dimmed); font-size: 0.875rem; font-weight: 400; }
+
+.notes {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--mantine-color-default-border);
+  line-height: 1.6;
+}
+.entries a { color: var(--mantine-primary-color-light-color); text-underline-offset: 0.16em; }
+.notes > a, .notes h3 { font-size: 0.875rem; }
+.notes h3 { margin: 1rem 0 0.25rem; }
+.notes ul, .notes ol { padding-inline-start: 1.35rem; }
+.notes li + li { margin-top: 0.4rem; }
+.notes pre { overflow-x: auto; }
+.notes > :first-child, .notes ul, .notes ol { margin-top: 0; }
+.notes > :last-child { margin-bottom: 0; }
+.entries > h2 { margin: 1rem 0 0; font-size: 1rem; }
+.entries > p { margin: 0; color: var(--mantine-color-dimmed); }
+
+@media (min-width: $mantine-breakpoint-sm) {
+  .release time { flex-basis: auto; margin-inline-start: auto; }
+}
