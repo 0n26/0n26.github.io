@@ -1,63 +1,69 @@
-import { Manifest } from 'release-please';
 import { expect, it } from 'vitest';
-import config from '../release-please-config.json';
-import './release.mjs';
+import { nextVersion, releaseFiles, verifiedRequest } from './release.mjs';
 
-it('publishes commit descriptions in the release PR, changelog, and GitHub Release', async () => {
-  const previous = { sha: '0'.repeat(40), tagName: 'v0.5.0', name: 'v0.5.0' };
-  const commits = [
-    {
-      sha: '1'.repeat(40),
-      message: [
-        'feat(catalog): обновить каталог (#21)', '',
-        '## Изменения', '',
-        'Каталог показывает новые серии.', '', '- Открыть серию можно из выдачи.', '',
-        '## Проверка', '', 'Служебный отчёт CI.', '',
-        '## Риски', '', 'Служебное примечание.',
-      ].join('\n'),
-    },
-    {
-      sha: '2'.repeat(40),
-      message: 'fix(player): вернуть звук\r\n\r\nЗвук сохраняется после паузы.\r\n\r\nCo-authored-by: Author <author@example.com>',
-    },
-    { sha: '3'.repeat(40), message: 'fix: исправить название' },
-    { sha: '4'.repeat(40), message: 'docs: обновить правила\n\nНе входит в релиз.' },
-  ];
-  let merged;
-  const github = {
-    repository: { owner: 'example', repo: 'site', defaultBranch: 'main' },
-    async getFileJson(path) {
-      return { 'release-please-config.json': config, '.release-please-manifest.json': { '.': '0.5.0' } }[path];
-    },
-    async getFileContentsOnBranch() {
-      return { parsedContent: '{"name":"site","version":"0.5.0"}' };
-    },
-    async *releaseIterator() { yield previous; },
-    async *mergeCommitIterator() {
-      for (const commit of commits) yield { ...commit, files: ['src/app/App.tsx'] };
-      yield previous;
-    },
-    async *pullRequestIterator() { yield merged; },
+const repository = 'example/site';
+
+it.each([
+  ['feat(player): изменить меню', '', '0.7.0'],
+  ['fix: вернуть звук', '', '0.6.1'],
+  ['perf: ускорить поиск', '', '0.6.1'],
+  ['docs!: удалить старый интерфейс', '', '1.0.0'],
+  ['fix: изменить формат', 'BREAKING CHANGE: старый формат не поддерживается', '1.0.0'],
+  ['docs: обновить правила', '', '0.6.0'],
+])('calculates the version for %s', (title, body, version) => {
+  expect(nextVersion('0.6.0', title, body)).toBe(version);
+});
+
+it('updates both npm versions and rewrites its own release notes without losing history', () => {
+  const original = {
+    'package.json': '{"version":"0.6.0"}',
+    'package-lock.json': '{"version":"0.6.0","packages":{"":{"version":"0.6.0"}}}',
+    'changelog.md': '# Changelog\n\n## 0.6.0 (2026-11-19)\n\nПредыдущая запись.\n',
   };
-  const manifest = await Manifest.fromManifest(github, 'main');
-  const [pr] = await manifest.buildPullRequests();
-  const notes = pr.body.releaseData[0].notes;
-  const repository = 'https://github.com/example/site';
-  expect(notes).toContain(`${repository}/compare/v0.5.0...v0.6.0`);
-  expect(notes).toContain(`${repository}/commit/${commits[0].sha}))\n\n  Каталог показывает новые серии.\n\n  - Открыть серию можно из выдачи.`);
-  expect(notes).toContain(`${repository}/commit/${commits[1].sha}))\n\n  Звук сохраняется после паузы.`);
-  expect(notes).toContain('исправить название');
-  expect(notes).not.toMatch(/Служебн|Co-authored-by|Не входит в релиз/);
-
-  const history = '# Changelog\n\n## 0.5.0 (2026-11-20)\n\nПредыдущая запись.\n';
-  const changelog = pr.updates.find(({ path }) => path === 'changelog.md').updater.updateContent(history);
-  expect(changelog).toContain(`${notes}\n\n## 0.5.0 (2026-11-20)\n\nПредыдущая запись.`);
-
-  merged = {
-    number: 22, sha: '5'.repeat(40), title: pr.title.toString(), body: pr.body.toString(),
-    labels: pr.labels, headBranchName: pr.headRefName,
+  const pr = {
+    number: 17, created_at: '2026-11-20T12:00:00Z', title: 'fix(player): вернуть звук',
+    body: '## Изменения\n\n- Звук сохраняется после паузы.\n\n## Проверка\n\nОтчёт CI.\n',
   };
-  const [release] = await manifest.buildReleases();
-  expect(release.tag.toString()).toBe('v0.6.0');
-  expect(release.notes).toBe(notes);
+  const { changes } = releaseFiles(repository, '0.6.0', pr, original);
+  expect(JSON.parse(changes['package.json']).version).toBe('0.6.1');
+  const lock = JSON.parse(changes['package-lock.json']);
+  expect([lock.version, lock.packages[''].version]).toEqual(['0.6.1', '0.6.1']);
+  const journal = changes['changelog.md'];
+  expect(journal).toContain('https://github.com/example/site/compare/v0.6.0...v0.6.1');
+  expect(journal).toContain('https://github.com/example/site/pull/17');
+  expect(journal).toContain('\n  - Звук сохраняется после паузы.');
+  expect(journal).not.toContain('Отчёт CI');
+  expect(journal).toContain('## 0.6.0 (2026-11-19)\n\nПредыдущая запись.');
+
+  expect(releaseFiles(repository, '0.6.0', pr, changes).changes).toEqual({});
+  const edited = releaseFiles(repository, '0.6.0', { ...pr, body: 'Звук не сбрасывается.' }, changes);
+  expect(edited.changes['changelog.md']).toContain('Звук не сбрасывается.');
+  expect(edited.changes['changelog.md']).not.toContain('Звук сохраняется после паузы.');
+
+  const docs = releaseFiles(repository, '0.6.0', { ...pr, title: 'docs: уточнить инструкцию' }, changes);
+  expect(JSON.parse(docs.changes['package.json']).version).toBe('0.6.0');
+  expect(docs.changes['changelog.md']).toBe(original['changelog.md']);
+});
+
+it('allows the bot only after successful tests on the current internal PR head', () => {
+  const repo = { full_name: repository };
+  const base = { ref: 'main', sha: 'base', repo };
+  const head = { ref: 'fix/sound', sha: 'head', repo };
+  const pr = { number: 17, state: 'open', draft: false, base, head };
+  const run = {
+    event: 'pull_request', path: '.github/workflows/ci.yml', conclusion: 'failure',
+    head_sha: 'head', pull_requests: [{ number: 17, base, head }],
+  };
+  const jobs = [{ name: 'verify', steps: [
+    { name: 'Run all checks', conclusion: 'success' },
+    { name: 'Verify release files', conclusion: 'failure' },
+  ] }];
+  expect(verifiedRequest(run, jobs, pr, repository)).toBe(true);
+  expect(verifiedRequest(run, [{ name: 'verify', steps: [
+    { name: 'Run all checks', conclusion: 'failure' },
+    { name: 'Verify release files', conclusion: 'skipped' },
+  ] }], pr, repository)).toBe(false);
+  expect(verifiedRequest(run, jobs, { ...pr, head: { ...head, sha: 'new' } }, repository)).toBe(false);
+  expect(verifiedRequest(run, jobs, { ...pr, base: { ...base, sha: 'new' } }, repository)).toBe(false);
+  expect(verifiedRequest(run, jobs, { ...pr, head: { ...head, repo: { full_name: 'fork/site' } } }, repository)).toBe(false);
 });
