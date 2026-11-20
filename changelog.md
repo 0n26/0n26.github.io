@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/0n26/0n26.github.io/compare/v0.4.0...v0.5.0) (2026-11-20)
+
+
+### Возможности
+
+* **schedule:** показать программу релизов на выбранный день ([#13](https://github.com/0n26/0n26.github.io/issues/13)) ([905532b](https://github.com/0n26/0n26.github.io/commit/905532b77e56306f48439c1fd1e08ce63b52c55c))
+
 ## [0.4.0](https://github.com/0n26/0n26.github.io/compare/v0.3.0...v0.4.0) (2026-11-19)
 
 
