@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/0n26/0n26.github.io/compare/v0.5.0...v0.6.0) (2026-11-20)
+
+
+### Возможности
+
+* **changelog:** оформить историю изменений как журнал релизов ([#15](https://github.com/0n26/0n26.github.io/issues/15)) ([8021854](https://github.com/0n26/0n26.github.io/commit/802185480f495f43f2bab4c59ba739681a968a2a))
+
 ## [0.5.0](https://github.com/0n26/0n26.github.io/compare/v0.4.0...v0.5.0) (2026-11-20)
 
 ### Возможности
