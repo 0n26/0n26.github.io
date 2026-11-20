@@ -29,8 +29,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Verify release files
+        run: node scripts/release.mjs verify
       - run: npm ci
       - name: Run all checks
         run: npm run check
-      - name: Verify release files
-        run: node scripts/release.mjs verify
