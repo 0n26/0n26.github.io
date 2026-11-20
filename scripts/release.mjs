@@ -99,7 +99,7 @@ function verify(repository, pr) {
   const { version, changes } = releaseFiles(repository, gitVersion(pr.base.sha), pr, current);
   const pending = Object.keys(changes);
   if (pending.length) {
-    console.error(`Для ${version} нужно обновить ${pending.join(', ')}. Бот обновит ветку PR после успешных тестов.`);
+    console.error(`Для ${version} нужно обновить ${pending.join(', ')}. Тесты запустятся после обновления релизных файлов.`);
     process.exitCode = 1;
   }
 }
@@ -109,7 +109,7 @@ export function verifiedRequest(run, jobs, pr, repository) {
   const steps = jobs.find(({ name }) => name === 'verify')?.steps ?? [];
   return run.event === 'pull_request' && run.path === '.github/workflows/ci.yml' &&
     run.conclusion === 'failure' && run.head_sha === pr.head.sha && request?.base.sha === pr.base.sha &&
-    steps.some(({ name, conclusion }) => name === 'Run all checks' && conclusion === 'success') &&
+    steps.some(({ name, conclusion }) => name === 'Run all checks' && conclusion === 'skipped') &&
     steps.some(({ name, conclusion }) => name === 'Verify release files' && conclusion === 'failure') &&
     pr.state === 'open' && !pr.draft && pr.base.ref === 'main' && pr.head.ref !== 'main' &&
     pr.base.repo.full_name === repository && pr.head.repo?.full_name === repository;

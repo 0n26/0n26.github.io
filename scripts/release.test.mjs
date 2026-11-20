@@ -45,7 +45,7 @@ it('updates both npm versions and rewrites its own release notes without losing 
   expect(docs.changes['changelog.md']).toBe(original['changelog.md']);
 });
 
-it('allows the bot only after successful tests on the current internal PR head', () => {
+it('allows the bot after a release file mismatch, before tests run on the current internal PR head', () => {
   const repo = { full_name: repository };
   const base = { ref: 'main', sha: 'base', repo };
   const head = { ref: 'fix/sound', sha: 'head', repo };
@@ -55,13 +55,17 @@ it('allows the bot only after successful tests on the current internal PR head',
     head_sha: 'head', pull_requests: [{ number: 17, base, head }],
   };
   const jobs = [{ name: 'verify', steps: [
-    { name: 'Run all checks', conclusion: 'success' },
+    { name: 'Run all checks', conclusion: 'skipped' },
     { name: 'Verify release files', conclusion: 'failure' },
   ] }];
   expect(verifiedRequest(run, jobs, pr, repository)).toBe(true);
   expect(verifiedRequest(run, [{ name: 'verify', steps: [
     { name: 'Run all checks', conclusion: 'failure' },
     { name: 'Verify release files', conclusion: 'skipped' },
+  ] }], pr, repository)).toBe(false);
+  expect(verifiedRequest(run, [{ name: 'verify', steps: [
+    { name: 'Run all checks', conclusion: 'success' },
+    { name: 'Verify release files', conclusion: 'failure' },
   ] }], pr, repository)).toBe(false);
   expect(verifiedRequest(run, jobs, { ...pr, head: { ...head, sha: 'new' } }, repository)).toBe(false);
   expect(verifiedRequest(run, jobs, { ...pr, base: { ...base, sha: 'new' } }, repository)).toBe(false);
