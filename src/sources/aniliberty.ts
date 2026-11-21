@@ -7,6 +7,18 @@ const API = `${ORIGIN}/api/v1/anime`;
 const QUALITY_LEVELS = [480, 720, 1080] as const;
 const IMAGE_SIZES = ['preview', 'src', 'thumbnail'] as const;
 const ALIAS = /^[a-z0-9_-]+$/i;
+const TYPE_NAMES: Readonly<Record<string, string>> = {
+  tv: 'ТВ',
+  movie: 'Фильм',
+  special: 'Спешл',
+};
+const SEASON_NAMES: Readonly<Record<string, string>> = {
+  winter: 'Зима',
+  spring: 'Весна',
+  summer: 'Лето',
+  autumn: 'Осень',
+  fall: 'Осень',
+};
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -37,6 +49,31 @@ function imageUrl(value: unknown): string | undefined {
   }
 }
 
+function localized(value: unknown, names: Readonly<Record<string, string>>): string | undefined {
+  const row = record(value);
+  const label = text(row?.description) ?? text(row?.name);
+  if (label) return label;
+  const raw = text(row?.value) ?? text(value);
+  if (!raw) return;
+  const key = raw.toLowerCase();
+  return Object.hasOwn(names, key) ? names[key] : raw;
+}
+
+function genresFrom(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return;
+  const genres: string[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    const name = text(record(item)?.name);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    genres.push(name);
+  }
+  return genres.length > 0 ? genres : undefined;
+}
+
 function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefined {
   const alias = text(release.alias);
   if (!alias || !ALIAS.test(alias)) return;
@@ -49,9 +86,16 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
     alias,
     name,
     alternateName: alternateName === name ? undefined : alternateName,
+    searchName: alternative !== name && alternative !== alternateName ? alternative : undefined,
     poster: imageUrl(release.poster),
     year: positiveInteger(release.year) ? release.year : undefined,
     id: positiveInteger(release.id) ? release.id : undefined,
+    type: localized(release.type, TYPE_NAMES),
+    season: localized(release.season, SEASON_NAMES),
+    genres: genresFrom(release.genres),
+    episodesTotal: positiveInteger(release.episodes_total) ? release.episodes_total : undefined,
+    episodeDurationMinutes: positiveInteger(release.average_duration_of_episode)
+      ? release.average_duration_of_episode : undefined,
   };
 }
 
@@ -254,10 +298,8 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
     },
 
     async getRelated(title, signal) {
-      const alias = title.alias;
-      if (!ALIAS.test(alias)) return { similar: [], franchises: [] };
-      const id = positiveInteger(title.id) ? title.id : undefined;
-      if (!id) return { similar: [], franchises: [] };
+      const { alias, id } = title;
+      if (!ALIAS.test(alias) || !positiveInteger(id)) return { similar: [] };
 
       const [similarResult, franchiseResult] = await Promise.allSettled([
         fetcher(`${API}/releases/recommended?release_id=${id}&limit=6`, { signal, credentials: 'omit' }).then(readList),
@@ -273,19 +315,21 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
         }
       }
 
-      const franchises = new Map<string, Franchise>();
+      let franchises: Franchise[] | undefined;
       if (franchiseResult.status === 'fulfilled') {
+        const byId = new Map<string, Franchise>();
         for (const item of franchiseResult.value) {
           const franchise = franchiseFrom(item);
-          if (franchise) franchises.set(franchise.id, franchise);
+          if (franchise) byId.set(franchise.id, franchise);
         }
+        franchises = [...byId.values()];
       }
 
       if (similarResult.status === 'rejected' && franchiseResult.status === 'rejected') {
         throw similarResult.reason;
       }
 
-      return { similar: [...similar.values()].slice(0, 6), franchises: [...franchises.values()] };
+      return { similar: [...similar.values()].slice(0, 6), franchises };
     },
   };
 }

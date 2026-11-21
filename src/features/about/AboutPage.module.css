@@ -1,0 +1,49 @@
+.page {
+  max-width: 54rem;
+  margin-inline: auto;
+  overflow-wrap: anywhere;
+}
+
+.section {
+  display: grid;
+  gap: var(--mantine-spacing-sm);
+}
+
+.list {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.contributors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--mantine-spacing-md);
+}
+
+.contributor {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-sm);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  text-decoration: none;
+  color: inherit;
+}
+
+.contributor:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mantine-spacing-xs);
+}
+
+.link {
+  color: var(--mantine-primary-color-light-color);
+  text-underline-offset: 0.16em;
+}

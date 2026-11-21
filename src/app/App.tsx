@@ -10,6 +10,7 @@ import styles from './App.module.css';
 const TitlePage = lazy(() => import('../features/catalog/TitlePage').then(m => ({ default: m.TitlePage })));
 const SchedulePage = lazy(() => import('../features/catalog/SchedulePage').then(m => ({ default: m.SchedulePage })));
 const ChangelogPage = lazy(() => import('../features/changelog/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
+const AboutPage = lazy(() => import('../features/about/AboutPage').then(m => ({ default: m.AboutPage })));
 
 export function App() {
   const watch = useMatch('/anime/:source/:alias');
@@ -33,6 +34,7 @@ export function App() {
                 <NavLink to="/" end className={`${styles.navLink} ${styles.secondaryLink}`}>Каталог</NavLink>
                 <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
                 <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
+                <NavLink to="/about" className={`${styles.navLink} ${styles.aboutLink}`}>О проекте</NavLink>
               </Group>
             )}
           </Group>
@@ -47,6 +49,7 @@ export function App() {
               <Route path="anime/:source/:alias" element={<TitlePage />} />
               <Route path="schedule" element={<SchedulePage />} />
               <Route path="changelog" element={<ChangelogPage />} />
+              <Route path="about" element={<AboutPage />} />
               <Route path="*" element={
                 <Stack align="flex-start">
                   <Title order={1}>Страница не найдена</Title>
@@ -57,6 +60,7 @@ export function App() {
           </Suspense>
           <footer className={styles.footer}>
             <Text size="sm" c="dimmed">Ночной сеанс</Text>
+            <Link to="/about" className={styles.navLink}>О проекте</Link>
             <Link to="/changelog" className={styles.navLink}>Версия {version}</Link>
           </footer>
         </Container>

@@ -1,15 +1,27 @@
+export interface EpisodeRange {
+  first: number;
+  count: number;
+}
+
 export interface VoiceOption {
   source: string;
   alias: string;
+  episodeRange?: EpisodeRange;
 }
 
 export interface CatalogEntry {
   alias: string;
   name: string;
   alternateName?: string;
+  searchName?: string;
   poster?: string;
   year?: number;
   id?: number;
+  type?: string;
+  season?: string;
+  genres?: readonly string[];
+  episodesTotal?: number;
+  episodeDurationMinutes?: number;
 }
 
 export interface CatalogResult {
@@ -91,7 +103,8 @@ export interface Franchise {
 
 export interface RelatedInfo {
   similar: readonly CatalogEntry[];
-  franchises: readonly Franchise[];
+  /** Omitted when franchise data is unavailable; empty after a successful lookup with no matches. */
+  franchises?: readonly Franchise[];
 }
 
 export interface AnimeSource {

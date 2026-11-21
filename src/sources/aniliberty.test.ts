@@ -59,6 +59,23 @@ it('combines search, genre, and exact year before requesting the matching page',
   });
 });
 
+it('preserves a distinct alternative title for search without replacing the displayed English name', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    data: [
+      { alias: 'ao-no-hako', name: { main: 'Голубая шкатулка', english: 'Ao no Hako', alternative: 'Blue Box' } },
+      { alias: 'alt-only', name: { main: 'Перевод', alternative: 'Original' } },
+      { alias: 'alt-duplicate', name: { main: 'Дубль', english: 'Title', alternative: 'Title' } },
+    ],
+    meta: { pagination: { current_page: 1, total_pages: 1 } },
+  }));
+  const { items } = await source.getCatalog('', 1, new AbortController().signal);
+  expect(items.map(({ alternateName, searchName }) => [alternateName, searchName])).toEqual([
+    ['Ao no Hako', 'Blue Box'],
+    ['Original', undefined],
+    ['Title', undefined],
+  ]);
+});
+
 it('loads similar releases and franchise chronology without duplicates', async () => {
   const signal = new AbortController().signal;
   const source = createAniLiberty(async (input) => {
@@ -99,6 +116,82 @@ it('loads similar releases and franchise chronology without duplicates', async (
         { alias: 'second-part', name: 'Вторая часть', order: 2 },
       ],
     }],
+  });
+});
+
+it.each([200, 503])('keeps recommendations and distinguishes a franchise HTTP %s', async (status) => {
+  const source = createAniLiberty(async (input) =>
+    String(input).includes('/franchises/')
+      ? Response.json([], { status })
+      : Response.json([{ alias: 'similar-one', name: { main: 'Похожий' } }]),
+  );
+  const info = await source.getRelated!({ alias: 'test-release', id: 42, name: 'Тест', episodes: [] }, new AbortController().signal);
+
+  expect(info.similar.map(({ alias }) => alias)).toEqual(['similar-one']);
+  expect(info.franchises).toEqual(status === 200 ? [] : undefined);
+});
+
+it('normalizes title metadata for the about section', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    alias: 'meta-release',
+    name: { main: 'Метаданные' },
+    year: 2026,
+    type: { value: 'TV', description: 'ТВ' },
+    season: { value: 'autumn', description: 'Осень' },
+    genres: [
+      { id: 26, name: 'Исторический' },
+      { id: 11, name: 'Романтика' },
+      { id: 26, name: 'Исторический' },
+      { id: 1, name: '   ' },
+      { name: 42 },
+    ],
+    episodes_total: 12,
+    average_duration_of_episode: 24,
+    is_blocked_by_geo: false,
+    is_blocked_by_copyrights: false,
+  }));
+
+  await expect(source.getTitle('meta-release', new AbortController().signal)).resolves.toMatchObject({
+    type: 'ТВ',
+    season: 'Осень',
+    genres: ['Исторический', 'Романтика'],
+    year: 2026,
+    episodesTotal: 12,
+    episodeDurationMinutes: 24,
+  });
+});
+
+it('maps raw metadata values and drops invalid ones', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    alias: 'meta-release',
+    name: { main: 'Метаданные' },
+    type: { value: 'movie' },
+    season: 'summer',
+    genres: 'not a list',
+    episodes_total: '12',
+    average_duration_of_episode: 0,
+  }));
+
+  await expect(source.getTitle('meta-release', new AbortController().signal)).resolves.toMatchObject({
+    type: 'Фильм',
+    season: 'Лето',
+    genres: undefined,
+    episodesTotal: undefined,
+    episodeDurationMinutes: undefined,
+  });
+});
+
+it('keeps unknown metadata codes as text even when they match inherited properties', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    alias: 'meta-release',
+    name: { main: 'Метаданные' },
+    type: 'constructor',
+    season: { value: '__proto__' },
+  }));
+
+  await expect(source.getTitle('meta-release', new AbortController().signal)).resolves.toMatchObject({
+    type: 'constructor',
+    season: '__proto__',
   });
 });
 
