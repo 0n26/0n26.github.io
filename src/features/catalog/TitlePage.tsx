@@ -6,6 +6,7 @@ import type { AnimeSource, AnimeTitle, Episode, EpisodeRange, Franchise, VoiceOp
 import { ReleaseCard } from './ReleaseCard';
 import { Player } from '../player/Player';
 import { useSourceRequest } from './useSourceRequest';
+import { titleMetaRows } from './titleMeta';
 import { EpisodeNavigation, episodeCaption } from './EpisodeNavigation';
 import { rangeContains, voiceEpisodeIndex, voiceEpisodeNumber } from './voiceEpisodes';
 import styles from './TitlePage.module.css';
@@ -78,7 +79,7 @@ function RelatedSections({ getRelated, title, routePrefix }: {
   if (request.status === 'error') return null;
 
   const { similar, franchises } = request.data;
-  if (similar.length === 0 && franchises.length === 0) return null;
+  if (similar.length === 0 && !franchises) return null;
 
   return (
     <Stack gap="lg">
@@ -90,14 +91,20 @@ function RelatedSections({ getRelated, title, routePrefix }: {
           </SimpleGrid>
         </section>
       )}
-      {franchises.length > 0 && (
+      {franchises && (
         <section aria-labelledby="franchise-heading">
-          <Title order={2} size="h3" id="franchise-heading" mb="sm">Франшиза (Хронология)</Title>
-          <Stack gap="md">
-            {franchises.map((franchise) => (
-              <Chronology key={franchise.id} franchise={franchise} currentAlias={title.alias} routePrefix={routePrefix} />
-            ))}
-          </Stack>
+          <Title order={2} size="h3" id="franchise-heading" mb="sm">
+            {franchises.length > 0 ? 'Франшиза (Хронология)' : 'Ни одной связанной франшизы'}
+          </Title>
+          {franchises.length > 0 ? (
+            <Stack gap="md">
+              {franchises.map((franchise) => (
+                <Chronology key={franchise.id} franchise={franchise} currentAlias={title.alias} routePrefix={routePrefix} />
+              ))}
+            </Stack>
+          ) : (
+            <Text c="dimmed">Данный релиз не связан ни с одной франшизой</Text>
+          )}
         </section>
       )}
     </Stack>
@@ -147,6 +154,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
   const locator = voice === null || qualifiedAlias.test(voice) ? voice ?? alias : null;
   const request = useTitleRequest(source, locator);
   const title = request.status === 'ready' ? request.data : null;
+  const metaRows = title && titleMetaRows(title);
   const loadVoices = useCallback(async (signal: AbortSignal) => {
     await Promise.resolve();
     return signal.aborted ? [] : (source.getVoices?.(alias, signal) ?? []);
@@ -241,6 +249,16 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
           <strong>О тайтле</strong>
           <span>{source.name}{title.year && ` · ${title.year}`}</span>
         </summary>
+        {metaRows && metaRows.length > 0 && (
+          <dl className={styles.meta}>
+            {metaRows.map(({ label, value }) => (
+              <div key={label} className={styles.metaRow}>
+                <dt>{label}:</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
         <div className={styles.synopsis}>
           {title.poster && <Image src={title.poster} alt="" w={90} radius="sm" loading="lazy" />}
           <Stack gap="xs">

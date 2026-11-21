@@ -76,6 +76,13 @@ it('loads the requested provider without waiting for the index or the original p
   expect(index).not.toHaveBeenCalled();
 });
 
+it('does not report an empty franchise lookup for a provider that cannot look up franchises', async () => {
+  const source = createCombinedSource([provider('animevost')], async () => null);
+
+  const info = await source.getRelated!({ alias: 'animevost:7', name: 'Hero', episodes: [] }, signal);
+  expect(info.franchises).toBeUndefined();
+});
+
 it('fetches only the requested page per provider if the index is expired', async () => {
   const a = provider('aniliberty');
   const b = provider('animevost');
