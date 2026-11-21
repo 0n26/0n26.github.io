@@ -30,8 +30,23 @@ export function parseCatalogIndex(value: unknown, now = Date.now()): CatalogInde
       byAlias.set(alias, release);
       const alternateName = text(entry.alternateName);
       const poster = text(entry.poster);
-      release.push({ alias, name, alternateName, year: positiveInteger(entry.year) ? entry.year : undefined,
-        poster: poster?.startsWith('https://') ? poster : undefined });
+      const genres = Array.isArray(entry.genres)
+        ? entry.genres.flatMap((genre) => {
+          const name = text(genre);
+          return name ? [name] : [];
+        })
+        : undefined;
+      release.push({
+        alias, name, alternateName, year: positiveInteger(entry.year) ? entry.year : undefined,
+        poster: poster?.startsWith('https://') ? poster : undefined,
+        ageRating: text(entry.ageRating),
+        publishStatus: text(entry.publishStatus),
+        type: text(entry.type),
+        season: text(entry.season),
+        genres: genres?.length ? genres : undefined,
+        episodesTotal: positiveInteger(entry.episodesTotal) ? entry.episodesTotal : undefined,
+        episodeDurationMinutes: positiveInteger(entry.episodeDurationMinutes) ? entry.episodeDurationMinutes : undefined,
+      });
     }
     releases.push(release);
   }

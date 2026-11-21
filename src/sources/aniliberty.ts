@@ -6,6 +6,34 @@ const API = `${ORIGIN}/api/v1/anime`;
 const QUALITY_LEVELS = [480, 720, 1080] as const;
 const IMAGE_SIZES = ['preview', 'src', 'thumbnail'] as const;
 const ALIAS = /^[a-z0-9_-]+$/i;
+const TYPE_NAMES: Readonly<Record<string, string>> = {
+  tv: 'ТВ',
+  ona: 'ONA',
+  web: 'WEB',
+  ova: 'OVA',
+  oad: 'OAD',
+  movie: 'Фильм',
+  dorama: 'Дорама',
+  special: 'Спешл',
+};
+const SEASON_NAMES: Readonly<Record<string, string>> = {
+  winter: 'Зима',
+  spring: 'Весна',
+  summer: 'Лето',
+  autumn: 'Осень',
+  fall: 'Осень',
+};
+const AGE_RATING_NAMES: Readonly<Record<string, string>> = {
+  r0_plus: '0+',
+  r6_plus: '6+',
+  r12_plus: '12+',
+  r16_plus: '16+',
+  r18_plus: '18+',
+};
+const PUBLISH_STATUS_NAMES: Readonly<Record<string, string>> = {
+  is_ongoing: 'Онгоинг',
+  is_not_ongoing: 'Завершен',
+};
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -36,6 +64,36 @@ function imageUrl(value: unknown): string | undefined {
   }
 }
 
+function localized(value: unknown, names: Readonly<Record<string, string>>): string | undefined {
+  const row = record(value);
+  const raw = text(row?.value) ?? text(value);
+  const mapped = raw ? names[raw.toLowerCase()] : undefined;
+  if (mapped) return mapped;
+  return text(row?.description) ?? text(row?.name) ?? raw;
+}
+
+function genresFrom(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return;
+  const genres: string[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    const name = text(record(item)?.name) ?? text(item);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    genres.push(name);
+  }
+  return genres.length > 0 ? genres : undefined;
+}
+
+function publishStatusFrom(release: Record<string, unknown>): string | undefined {
+  const explicit = localized(release.publish_status ?? release.publishStatus, PUBLISH_STATUS_NAMES);
+  if (explicit) return explicit;
+  const ongoing = release.is_ongoing ?? release.isOngoing;
+  return typeof ongoing === 'boolean' ? PUBLISH_STATUS_NAMES[ongoing ? 'is_ongoing' : 'is_not_ongoing'] : undefined;
+}
+
 function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefined {
   const alias = text(release.alias);
   if (!alias || !ALIAS.test(alias)) return;
@@ -51,6 +109,14 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
     poster: imageUrl(release.poster),
     year: positiveInteger(release.year) ? release.year : undefined,
     id: positiveInteger(release.id) ? release.id : undefined,
+    ageRating: localized(release.age_rating ?? release.ageRating, AGE_RATING_NAMES),
+    publishStatus: publishStatusFrom(release),
+    type: localized(release.type, TYPE_NAMES),
+    season: localized(release.season, SEASON_NAMES),
+    genres: genresFrom(release.genres),
+    episodesTotal: positiveInteger(release.episodes_total) ? release.episodes_total : undefined,
+    episodeDurationMinutes: positiveInteger(release.average_duration_of_episode)
+      ? release.average_duration_of_episode : undefined,
   };
 }
 

@@ -35,6 +35,28 @@
   font-size: var(--mantine-font-size-sm);
 }
 
+.meta {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 var(--mantine-spacing-md);
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.4rem;
+  overflow-wrap: anywhere;
+}
+
+.metaRow dt {
+  color: var(--mantine-color-dimmed);
+  font-weight: 600;
+}
+
+.metaRow dd {
+  margin: 0;
+}
+
 .synopsis {
   display: flex;
   align-items: start;

@@ -101,6 +101,105 @@ it('loads similar releases and franchise chronology without duplicates', async (
   });
 });
 
+it('normalizes title metadata for the about section', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    alias: 'meta-release',
+    name: { main: 'Метаданные' },
+    year: 2026,
+    age_rating: { value: 'R18_PLUS', description: '18+' },
+    is_ongoing: false,
+    type: { value: 'TV', description: 'ТВ' },
+    season: { value: 'autumn', description: 'Осень' },
+    genres: [
+      { id: 26, name: 'Исторический' },
+      { id: 11, name: 'Романтика' },
+      { id: 26, name: 'Исторический' },
+      { id: 1, name: '   ' },
+      { name: 42 },
+    ],
+    episodes_total: 12,
+    average_duration_of_episode: 24,
+    is_blocked_by_geo: false,
+    is_blocked_by_copyrights: false,
+  }));
+
+  await expect(source.getTitle('meta-release', new AbortController().signal)).resolves.toMatchObject({
+    type: 'ТВ',
+    season: 'Осень',
+    genres: ['Исторический', 'Романтика'],
+    year: 2026,
+    episodesTotal: 12,
+    episodeDurationMinutes: 24,
+    ageRating: '18+',
+    publishStatus: 'Завершен',
+  });
+});
+
+it('maps raw metadata values and drops invalid ones', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    alias: 'meta-release',
+    name: { main: 'Метаданные' },
+    type: { value: 'movie' },
+    season: 'summer',
+    genres: 'not a list',
+    episodes_total: '12',
+    average_duration_of_episode: 0,
+    age_rating: 'unknown-rating',
+    publish_status: 'UNKNOWN',
+  }));
+
+  const title = await source.getTitle('meta-release', new AbortController().signal);
+  expect(title).toMatchObject({ type: 'Фильм', season: 'Лето' });
+  expect(title?.genres).toBeUndefined();
+  expect(title?.episodesTotal).toBeUndefined();
+  expect(title?.episodeDurationMinutes).toBeUndefined();
+  expect(title?.ageRating).toBe('unknown-rating');
+  expect(title?.publishStatus).toBe('UNKNOWN');
+});
+
+it('reads age rating and publish status from every supported response shape', async () => {
+  const cases = [
+    [{ age_rating: { value: 'R16_PLUS' }, publish_status: { value: 'IS_ONGOING', description: 'Онгоинг' } }, '16+', 'Онгоинг'],
+    [{ age_rating: { description: '12+' }, is_ongoing: true }, '12+', 'Онгоинг'],
+    [{ age_rating: 'R0_PLUS', is_ongoing: false }, '0+', 'Завершен'],
+    [{ is_ongoing: 'false', age_rating: 18 }, undefined, undefined],
+  ] as const;
+
+  for (const [fields, ageRating, publishStatus] of cases) {
+    const source = createAniLiberty(async () => Response.json({
+      alias: 'meta-release', name: { main: 'Метаданные' }, ...fields,
+    }));
+    const title = await source.getTitle('meta-release', new AbortController().signal);
+    expect(title?.ageRating).toBe(ageRating);
+    expect(title?.publishStatus).toBe(publishStatus);
+  }
+});
+
+it('keeps metadata on catalog entries as well as on the full title', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    data: [{
+      alias: 'meta-release',
+      name: { main: 'Метаданные' },
+      genres: [{ name: 'Комедия' }],
+      type: { description: 'ТВ' },
+      episodes_total: 12,
+      average_duration_of_episode: 25,
+    }],
+    meta: { pagination: { current_page: 1, total_pages: 1 } },
+  }));
+
+  await expect(source.getCatalog('', 1, new AbortController().signal)).resolves.toMatchObject({
+    items: [{
+      alias: 'meta-release',
+      name: 'Метаданные',
+      genres: ['Комедия'],
+      type: 'ТВ',
+      episodesTotal: 12,
+      episodeDurationMinutes: 25,
+    }],
+  });
+});
+
 it('keeps published episode IDs and does not advertise a next episode for a finished season', async () => {
   const source = createAniLiberty(async (input) => {
     expect(String(input)).toBe('https://anilibria.top/api/v1/anime/schedule/week');

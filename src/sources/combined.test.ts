@@ -51,6 +51,38 @@ it('loads the requested provider without waiting for the index or the original p
   expect(index).not.toHaveBeenCalled();
 });
 
+it('keeps about-section metadata when a provider title is prefixed', async () => {
+  const a: AnimeSource = {
+    ...provider('aniliberty'),
+    getTitle: vi.fn<AnimeSource['getTitle']>(async (alias) => ({
+      alias,
+      name: 'Демоны старшей школы',
+      genres: ['Комедия', 'Этти'],
+      type: 'ТВ',
+      season: 'Осень',
+      year: 2012,
+      episodesTotal: 12,
+      episodeDurationMinutes: 25,
+      ageRating: '18+',
+      publishStatus: 'Завершен',
+      episodes: [],
+    })),
+  };
+  const source = createCombinedSource([a], async () => null);
+
+  await expect(source.getTitle('aniliberty:high-school-dxd', signal)).resolves.toMatchObject({
+    alias: 'aniliberty:high-school-dxd',
+    genres: ['Комедия', 'Этти'],
+    type: 'ТВ',
+    season: 'Осень',
+    year: 2012,
+    episodesTotal: 12,
+    episodeDurationMinutes: 25,
+    ageRating: '18+',
+    publishStatus: 'Завершен',
+  });
+});
+
 it('fetches only the requested page per provider if the index is expired', async () => {
   const a = provider('aniliberty');
   const b = provider('animevost');
