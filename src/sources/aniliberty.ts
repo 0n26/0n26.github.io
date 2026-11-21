@@ -53,7 +53,9 @@ function localized(value: unknown, names: Readonly<Record<string, string>>): str
   const label = text(row?.description) ?? text(row?.name);
   if (label) return label;
   const raw = text(row?.value) ?? text(value);
-  return raw ? names[raw.toLowerCase()] ?? raw : undefined;
+  if (!raw) return;
+  const key = raw.toLowerCase();
+  return Object.hasOwn(names, key) ? names[key] : raw;
 }
 
 function genresFrom(value: unknown): string[] | undefined {
@@ -255,10 +257,8 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
     },
 
     async getRelated(title, signal) {
-      const alias = title.alias;
-      if (!ALIAS.test(alias)) return { similar: [], franchises: [] };
-      const id = positiveInteger(title.id) ? title.id : undefined;
-      if (!id) return { similar: [], franchises: [] };
+      const { alias, id } = title;
+      if (!ALIAS.test(alias) || !positiveInteger(id)) return { similar: [] };
 
       const [similarResult, franchiseResult] = await Promise.allSettled([
         fetcher(`${API}/releases/recommended?release_id=${id}&limit=6`, { signal, credentials: 'omit' }).then(readList),
@@ -274,19 +274,21 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
         }
       }
 
-      const franchises = new Map<string, Franchise>();
+      let franchises: Franchise[] | undefined;
       if (franchiseResult.status === 'fulfilled') {
+        const byId = new Map<string, Franchise>();
         for (const item of franchiseResult.value) {
           const franchise = franchiseFrom(item);
-          if (franchise) franchises.set(franchise.id, franchise);
+          if (franchise) byId.set(franchise.id, franchise);
         }
+        franchises = [...byId.values()];
       }
 
       if (similarResult.status === 'rejected' && franchiseResult.status === 'rejected') {
         throw similarResult.reason;
       }
 
-      return { similar: [...similar.values()].slice(0, 6), franchises: [...franchises.values()] };
+      return { similar: [...similar.values()].slice(0, 6), franchises };
     },
   };
 }

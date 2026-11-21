@@ -101,6 +101,18 @@ it('loads similar releases and franchise chronology without duplicates', async (
   });
 });
 
+it.each([200, 503])('keeps recommendations and distinguishes a franchise HTTP %s', async (status) => {
+  const source = createAniLiberty(async (input) =>
+    String(input).includes('/franchises/')
+      ? Response.json([], { status })
+      : Response.json([{ alias: 'similar-one', name: { main: 'Похожий' } }]),
+  );
+  const info = await source.getRelated!({ alias: 'test-release', id: 42, name: 'Тест', episodes: [] }, new AbortController().signal);
+
+  expect(info.similar.map(({ alias }) => alias)).toEqual(['similar-one']);
+  expect(info.franchises).toEqual(status === 200 ? [] : undefined);
+});
+
 it('normalizes title metadata for the about section', async () => {
   const source = createAniLiberty(async () => Response.json({
     alias: 'meta-release',
@@ -148,6 +160,20 @@ it('maps raw metadata values and drops invalid ones', async () => {
     genres: undefined,
     episodesTotal: undefined,
     episodeDurationMinutes: undefined,
+  });
+});
+
+it('keeps unknown metadata codes as text even when they match inherited properties', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    alias: 'meta-release',
+    name: { main: 'Метаданные' },
+    type: 'constructor',
+    season: { value: '__proto__' },
+  }));
+
+  await expect(source.getTitle('meta-release', new AbortController().signal)).resolves.toMatchObject({
+    type: 'constructor',
+    season: '__proto__',
   });
 });
 

@@ -70,7 +70,8 @@ export interface Franchise {
 
 export interface RelatedInfo {
   similar: readonly CatalogEntry[];
-  franchises: readonly Franchise[];
+  /** Omitted when franchise data is unavailable; empty after a successful lookup with no matches. */
+  franchises?: readonly Franchise[];
 }
 
 export interface AnimeSource {

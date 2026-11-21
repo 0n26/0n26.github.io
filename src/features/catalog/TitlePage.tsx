@@ -6,8 +6,8 @@ import type { AnimeSource, AnimeTitle, Episode, Franchise } from '../../sources/
 import { ReleaseCard } from './ReleaseCard';
 import { Player } from '../player/Player';
 import { useSourceRequest } from './useSourceRequest';
-import { EpisodeNavigation, episodeCaption } from './EpisodeNavigation';
 import { titleMetaRows } from './titleMeta';
+import { EpisodeNavigation, episodeCaption } from './EpisodeNavigation';
 import styles from './TitlePage.module.css';
 
 const restrictionMessages = {
@@ -75,6 +75,7 @@ function RelatedSections({ getRelated, title, routePrefix }: {
   if (request.status === 'error') return null;
 
   const { similar, franchises } = request.data;
+  if (similar.length === 0 && !franchises) return null;
 
   return (
     <Stack gap="lg">
@@ -86,20 +87,22 @@ function RelatedSections({ getRelated, title, routePrefix }: {
           </SimpleGrid>
         </section>
       )}
-      <section aria-labelledby="franchise-heading">
-        <Title order={2} size="h3" id="franchise-heading" mb="sm">
-          {franchises.length > 0 ? 'Франшиза (Хронология)' : 'Ни одной связанной франшизы'}
-        </Title>
-        {franchises.length > 0 ? (
-          <Stack gap="md">
-            {franchises.map((franchise) => (
-              <Chronology key={franchise.id} franchise={franchise} currentAlias={title.alias} routePrefix={routePrefix} />
-            ))}
-          </Stack>
-        ) : (
-          <Text c="dimmed">Данный релиз не связан ни с одной франшизой</Text>
-        )}
-      </section>
+      {franchises && (
+        <section aria-labelledby="franchise-heading">
+          <Title order={2} size="h3" id="franchise-heading" mb="sm">
+            {franchises.length > 0 ? 'Франшиза (Хронология)' : 'Ни одной связанной франшизы'}
+          </Title>
+          {franchises.length > 0 ? (
+            <Stack gap="md">
+              {franchises.map((franchise) => (
+                <Chronology key={franchise.id} franchise={franchise} currentAlias={title.alias} routePrefix={routePrefix} />
+              ))}
+            </Stack>
+          ) : (
+            <Text c="dimmed">Данный релиз не связан ни с одной франшизой</Text>
+          )}
+        </section>
+      )}
     </Stack>
   );
 }
@@ -126,6 +129,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
   const locator = voice === null || qualifiedAlias.test(voice) ? voice ?? alias : null;
   const request = useTitleRequest(source, locator);
   const title = request.status === 'ready' ? request.data : null;
+  const metaRows = title && titleMetaRows(title);
   const loadVoices = useCallback(async (signal: AbortSignal) => {
     await Promise.resolve();
     return signal.aborted ? [] : (source.getVoices?.(alias, signal) ?? []);
@@ -182,7 +186,6 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
     }
     return <Alert color="gray" title="Аниме не найдено">{recovery ?? 'Возможно, ссылка устарела.'}</Alert>;
   }
-  const metaRows = titleMetaRows(title);
   return (
     <Stack gap="lg">
       <Group gap="sm" align="baseline" className={styles.heading}>
@@ -205,7 +208,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
           <strong>О тайтле</strong>
           <span>{source.name}{title.year && ` · ${title.year}`}</span>
         </summary>
-        {metaRows.length > 0 && (
+        {metaRows && metaRows.length > 0 && (
           <dl className={styles.meta}>
             {metaRows.map(({ label, value }) => (
               <div key={label} className={styles.metaRow}>

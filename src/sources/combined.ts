@@ -131,13 +131,13 @@ export function createCombinedSource(sources: readonly AnimeSource[], loadIndex:
 
     async getRelated(title, signal) {
       const resolved = resolveSource(availableSources, title.alias);
-      if (!resolved?.source.getRelated) return { similar: [], franchises: [] };
+      if (!resolved?.source.getRelated) return { similar: [] };
       const { source, alias } = resolved;
       const info = await resolved.source.getRelated({ ...title, alias }, signal);
 
       return {
         similar: info.similar.map((entry) => prefixEntry(source.key, entry)),
-        franchises: info.franchises.map((franchise) => ({
+        franchises: info.franchises?.map((franchise) => ({
           ...franchise,
           releases: franchise.releases.map((release) => prefixEntry(source.key, release)),
         })),
