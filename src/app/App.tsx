@@ -3,7 +3,7 @@ import { lazy, Suspense } from 'react';
 import { Link, NavLink, Route, Routes, useMatch } from 'react-router';
 import { version } from '../../package.json';
 import { CatalogPage } from '../features/catalog/CatalogPage';
-import { defaultSource, getSource } from '../sources';
+
 import { UpdateNotice } from './UpdateNotice';
 import styles from './App.module.css';
 
@@ -13,7 +13,7 @@ const ChangelogPage = lazy(() => import('../features/changelog/ChangelogPage').t
 
 export function App() {
   const watch = useMatch('/anime/:source/:alias');
-  const source = watch?.params.source ? getSource(watch.params.source) : undefined;
+
   const catalog = useMatch('/');
   return (
     <AppShell header={{ height: catalog ? { base: 56, xs: 76 } : 76 }} className={styles.shell}>
@@ -25,8 +25,8 @@ export function App() {
               <Text span fw={800} size="sm" className={watch ? undefined : styles.brandName}>Ночной сеанс</Text>
             </Link>
             {watch ? (
-              <Link to={source && source !== defaultSource ? `/?${new URLSearchParams({ source: source.key })}` : '/'} className={styles.navLink}>
-                ← В каталог{source && ` ${source.name}`}
+              <Link to="/" className={styles.navLink}>
+                ← В каталог
               </Link>
             ) : (
               <Group component="nav" aria-label="Основная навигация" gap={4} wrap="nowrap">

@@ -1,11 +1,8 @@
 export interface VoiceOption {
   source: string;
-  sourceKey?: string;
+  sourceKey: string;
   alias: string;
   name?: string;
-  label?: string;
-  studio?: string;
-  voice?: string;
 }
 
 export interface CatalogEntry {
@@ -15,10 +12,7 @@ export interface CatalogEntry {
   poster?: string;
   year?: number;
   id?: number;
-  variants?: readonly VoiceOption[];
   voices?: readonly VoiceOption[];
-  dubs?: readonly VoiceOption[];
-  studios?: readonly VoiceOption[];
 }
 
 export interface CatalogResult {

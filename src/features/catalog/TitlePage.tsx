@@ -30,7 +30,7 @@ function Playback({ title, episode, sourceKey, hasSelection }: {
     return <Alert color="gray" title="Видео недоступно">Источник не предоставил видео для этого эпизода.</Alert>;
   }
   const poster = episode.preview ?? title.poster;
-  const episodeKey = JSON.stringify([sourceKey, title.alias, episode.id]);
+  const episodeKey = JSON.stringify([sourceKey, episode.id]);
   return <Player key={episodeKey} episodeKey={episodeKey} streams={episode.streams} poster={poster} />;
 }
 
@@ -101,22 +101,43 @@ function RelatedSections({ getRelated, title, currentAlias, routePrefix }: {
 function TitleContent({ source, alias }: { source: AnimeSource; alias: string }) {
   const [params, setParams] = useSearchParams();
   const selectedId = params.get('episode');
-  const [selectedAlias, setSelectedAlias] = useState(alias);
+  const initialVoice = params.get('voice') ?? alias;
+  const [selectedVoice, setSelectedVoice] = useState(initialVoice);
+  const [pendingEpisodeNumber, setPendingEpisodeNumber] = useState<number | null>(null);
   const [voices, setVoices] = useState<readonly VoiceOption[]>([]);
 
-  const load = useCallback((signal: AbortSignal) => source.getTitle(selectedAlias, signal), [source, selectedAlias]);
-  const request = useSourceRequest(load);
+  const groupLoad = useCallback((signal: AbortSignal) => source.getTitle(alias, signal), [source, alias]);
+  const groupRequest = useSourceRequest(groupLoad);
+
+  const voiceLoad = useCallback((signal: AbortSignal) => source.getTitle(selectedVoice, signal), [source, selectedVoice]);
+  const request = useSourceRequest(voiceLoad);
 
   useEffect(() => {
-    if (request.status === 'ready' && request.data?.voices?.length) {
-      setVoices(request.data.voices);
+    if (groupRequest.status === 'ready' && groupRequest.data?.voices?.length) {
+      setVoices(groupRequest.data.voices);
     }
-  }, [request]);
+  }, [groupRequest]);
+
+  useEffect(() => {
+    if (request.status === 'ready' && pendingEpisodeNumber !== null) {
+      const match = request.data?.episodes.find((episode) => episode.number === pendingEpisodeNumber);
+      if (match) {
+        const next = new URLSearchParams(params);
+        next.set('episode', match.id);
+        setParams(next);
+      }
+      setPendingEpisodeNumber(null);
+    }
+  }, [request, pendingEpisodeNumber, params, setParams]);
 
   function changeVoice(nextAlias: string) {
-    if (nextAlias === selectedAlias) return;
-    setSelectedAlias(nextAlias);
+    if (nextAlias === selectedVoice) return;
+    const currentTitle = request.status === 'ready' ? request.data : null;
+    const currentEpisode = currentTitle && currentTitle.episodes ? (currentTitle.episodes.find((episode: Episode) => episode.id === selectedId) ?? currentTitle.episodes[0]) : undefined;
+    setPendingEpisodeNumber(currentEpisode?.number ?? null);
+    setSelectedVoice(nextAlias);
     const next = new URLSearchParams(params);
+    next.set('voice', nextAlias);
     next.delete('episode');
     setParams(next);
   }
@@ -142,12 +163,12 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
         {episode && <Text c="dimmed" size="lg" id="playback-heading">{episodeCaption(episode, currentIndex, title.episodes.length)}</Text>}
       </Group>
       {voices.length > 1 && (
-        <NativeSelect aria-label="Озвучка" size="md" radius="xl" value={selectedAlias}
-          data={voices.map((voice) => ({ value: voice.alias, label: voice.label ?? voice.source ?? 'Озвучка' }))}
+        <NativeSelect aria-label="Озвучка" size="md" radius="xl" value={selectedVoice}
+          data={voices.map((voice) => ({ value: voice.alias, label: voice.source }))}
           onChange={(event) => changeVoice(event.currentTarget.value)} />
       )}
       <div className={styles.theater}>
-        <Playback title={title} episode={episode} sourceKey={source.key} hasSelection={selectedId !== null} />
+        <Playback title={title} episode={episode} sourceKey={selectedVoice} hasSelection={selectedId !== null} />
         {title.episodes.length > 0 && (
           <EpisodeNavigation key={episode?.id ?? selectedId} episodes={title.episodes} currentIndex={currentIndex} />
         )}
@@ -169,7 +190,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
         <RelatedSections
           getRelated={source.getRelated}
           title={title}
-          currentAlias={title.alias}
+          currentAlias={selectedVoice}
           routePrefix={`/anime/${encodeURIComponent(source.key)}`}
         />
       )}
