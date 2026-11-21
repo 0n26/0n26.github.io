@@ -58,6 +58,23 @@ it('combines search, genre, and exact year before requesting the matching page',
   });
 });
 
+it('preserves a distinct alternative title for search without replacing the displayed English name', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    data: [
+      { alias: 'ao-no-hako', name: { main: 'Голубая шкатулка', english: 'Ao no Hako', alternative: 'Blue Box' } },
+      { alias: 'alt-only', name: { main: 'Перевод', alternative: 'Original' } },
+      { alias: 'alt-duplicate', name: { main: 'Дубль', english: 'Title', alternative: 'Title' } },
+    ],
+    meta: { pagination: { current_page: 1, total_pages: 1 } },
+  }));
+  const { items } = await source.getCatalog('', 1, new AbortController().signal);
+  expect(items.map(({ alternateName, searchName }) => [alternateName, searchName])).toEqual([
+    ['Ao no Hako', 'Blue Box'],
+    ['Original', undefined],
+    ['Title', undefined],
+  ]);
+});
+
 it('loads similar releases and franchise chronology without duplicates', async () => {
   const signal = new AbortController().signal;
   const source = createAniLiberty(async (input) => {
