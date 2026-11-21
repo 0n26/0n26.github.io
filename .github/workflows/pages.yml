@@ -34,6 +34,64 @@ jobs:
       - name: Select the main commit to deploy
         id: snapshot
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  sync-changelog:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: release-bump
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Copy the released changelog
+        id: changelog
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          git show "refs/tags/$RELEASE_TAG:changelog.md" > changelog.md
+          if ! git diff --quiet -- changelog.md; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        if: steps.changelog.outputs.changed == 'true'
+        id: app
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Update changelog PR and enable auto-merge
+        if: steps.changelog.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          branch=automation/sync-changelog
+          ref=refs/heads/$branch
+          previous=$(git ls-remote origin "$ref" | cut -f1)
+          if [[ -z "$previous" ]] || ! git diff --quiet "$previous" -- changelog.md ||
+            [[ "$(git rev-parse "$previous^")" != "$(git rev-parse HEAD)" ]]; then
+            git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'docs(changelog): синхронизировать историю релизов' -- changelog.md
+            git -c credential.helper= -c 'credential.helper=!gh auth git-credential' \
+              push --force-with-lease="$ref:$previous" origin "HEAD:$ref"
+          fi
+          pr=$(gh pr list -R "$GITHUB_REPOSITORY" --base main --head "$branch" \
+            --json number --jq '.[0].number // empty')
+          if [[ -z "$pr" ]]; then
+            pr=$(gh pr create -R "$GITHUB_REPOSITORY" --base main --head "$branch" \
+              --title 'docs(changelog): синхронизировать историю релизов' \
+              --body "Копия changelog.md из тега $RELEASE_TAG. Без повышения версии.")
+          fi
+          state=$(gh pr view "$pr" -R "$GITHUB_REPOSITORY" --json id,autoMergeRequest,state)
+          if jq -e '.state == "OPEN" and .autoMergeRequest == null' <<< "$state" >/dev/null; then
+            # GraphQL expands $id from the request variables, not from Bash.
+            # shellcheck disable=SC2016
+            gh api graphql -f id="$(jq -r .id <<< "$state")" \
+              -f query='mutation($id: ID!) { enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: SQUASH}) { pullRequest { number } } }'
+          fi
   build:
     needs: release
     runs-on: ubuntu-latest
