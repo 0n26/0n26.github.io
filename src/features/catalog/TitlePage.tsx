@@ -2,11 +2,12 @@ import { Alert, Badge, Group, Image, Loader, NativeSelect, SimpleGrid, Stack, Te
 import { useCallback, useEffect } from 'react';
 import { Link, useHref, useLocation, useParams, useSearchParams } from 'react-router';
 import { defaultSource, getSource } from '../../sources';
-import type { AnimeSource, AnimeTitle, Episode, Franchise } from '../../sources/source';
+import type { AnimeSource, AnimeTitle, Episode, EpisodeRange, Franchise, VoiceOption } from '../../sources/source';
 import { ReleaseCard } from './ReleaseCard';
 import { Player } from '../player/Player';
 import { useSourceRequest } from './useSourceRequest';
 import { EpisodeNavigation, episodeCaption } from './EpisodeNavigation';
+import { rangeContains, voiceEpisodeIndex, voiceEpisodeNumber } from './voiceEpisodes';
 import styles from './TitlePage.module.css';
 
 const restrictionMessages = {
@@ -15,11 +16,14 @@ const restrictionMessages = {
   unknown: 'Источник не подтвердил доступность просмотра.',
 };
 
-function Playback({ title, episode, sourceKey, hasSelection }: {
-  title: AnimeTitle; episode?: Episode; sourceKey: string; hasSelection: boolean;
+function Playback({ title, episode, sourceKey, hasSelection, rangeMismatch }: {
+  title: AnimeTitle; episode?: Episode; sourceKey: string; hasSelection: boolean; rangeMismatch: boolean;
 }) {
   if (title.restriction) {
     return <Alert color="yellow" title="Просмотр недоступен">{restrictionMessages[title.restriction]}</Alert>;
+  }
+  if (rangeMismatch) {
+    return <Alert role="alert" color="yellow" title="Не удалось сопоставить серии">Список серий у источника изменился. Выберите серию вручную.</Alert>;
   }
   if (!episode) {
     return hasSelection
@@ -111,6 +115,27 @@ function useTitleRequest(source: AnimeSource, alias: string | null) {
 
 const qualifiedAlias = /^(?!group:)[^:]+:.+$/;
 
+function voiceParams(params: URLSearchParams, alias: string) {
+  const next = new URLSearchParams(params);
+  next.set('voice', alias);
+  next.delete('episode');
+  return next;
+}
+
+function voiceLabel({ source, episodeRange }: VoiceOption) {
+  return episodeRange ? `${source} (серии ${episodeRange.first}–${episodeRange.first + episodeRange.count - 1})` : source;
+}
+
+function VoiceStartLinks({ options, params }: { options: readonly VoiceOption[]; params: URLSearchParams }) {
+  return (
+    <Group gap="sm">
+      {options.map((option) => (
+        <Link key={option.alias} to={`?${voiceParams(params, option.alias)}`}>Открыть {voiceLabel(option)} с начала</Link>
+      ))}
+    </Group>
+  );
+}
+
 function TitleContent({ source, alias }: { source: AnimeSource; alias: string }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
@@ -128,47 +153,37 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
   }, [source, alias]);
   const voicesRequest = useSourceRequest(combined ? loadVoices : null);
   const indexedVoices = voicesRequest.status === 'ready' ? voicesRequest.data : undefined;
-  const voices = title && indexedVoices && indexedVoices.length > 1
-    && indexedVoices.some((option) => option.alias === title.alias) ? indexedVoices : undefined;
 
   const switchFrom = location.state?.voiceEpisodeNumber;
   const pendingNumber = voice !== null && typeof switchFrom === 'number' ? switchFrom : null;
-  const matchedIndex = title && pendingNumber !== null
-    ? title.episodes.findIndex(({ number }) => number === pendingNumber)
+  const pendingRange: EpisodeRange | undefined = location.state?.voiceEpisodeRange;
+  const matchedIndex = title && pendingNumber !== null && (!pendingRange || title.alias === voice)
+    ? voiceEpisodeIndex(title.episodes, pendingNumber, pendingRange)
     : -1;
-  const currentIndex = matchedIndex >= 0 ? matchedIndex
+  const rangeMismatch = pendingRange !== undefined && pendingNumber !== null && matchedIndex < 0;
+  const currentIndex = matchedIndex >= 0 ? matchedIndex : rangeMismatch ? -1
     : selectedId === null ? 0 : (title?.episodes.findIndex(({ id }) => id === selectedId) ?? -1);
   const episode = title?.episodes[currentIndex];
 
   useEffect(() => {
     // Back can change the hash before React Router commits the new location.
-    if (!title || pendingNumber === null || window.location.hash !== href) return;
+    // Keep failed ranged switches pending so revisiting them cannot play episode one.
+    if (!title || pendingNumber === null || rangeMismatch || window.location.hash !== href) return;
     const next = new URLSearchParams(params);
     if (matchedIndex >= 0 && episode) next.set('episode', episode.id);
     setParams(next, { replace: true });
-  }, [episode, href, matchedIndex, params, pendingNumber, setParams, title]);
-
-  function changeVoice(nextAlias: string) {
-    if (nextAlias === title?.alias || !voices?.some(({ alias: option }) => option === nextAlias)) return;
-    const next = new URLSearchParams(params);
-    next.set('voice', nextAlias);
-    next.delete('episode');
-    setParams(next, { state: { voiceEpisodeNumber: episode?.number } });
-  }
+  }, [episode, href, matchedIndex, params, pendingNumber, rangeMismatch, setParams, title]);
 
   if (locator !== null && request.status === 'loading') {
     return <Group role="status" gap="xs"><Loader size="xs" aria-hidden /> <Text>Загружаем аниме…</Text></Group>;
   }
   if (!title) {
-    const [base, alternate] = indexedVoices ?? [];
-    const indexedRecovery = voice === alternate?.alias ? base : voice === null || voice === base?.alias ? alternate : undefined;
+    const activeAlias = voice ?? indexedVoices?.[0]?.alias;
+    const alternatives = indexedVoices?.filter((option) => option.alias !== activeAlias);
     const legacyFallback = voice !== null && locator !== null && voice !== alias && qualifiedAlias.test(alias)
-      && voicesRequest.status !== 'loading' && !alternate;
-    const recoveryAlias = indexedRecovery?.alias ?? (legacyFallback ? alias : undefined);
-    const next = new URLSearchParams(params);
-    next.delete('episode');
-    if (recoveryAlias) next.set('voice', recoveryAlias);
-    const recovery = recoveryAlias ? <Link to={`?${next}`}>Открыть доступную озвучку</Link> : null;
+      && voicesRequest.status !== 'loading' && !alternatives?.length;
+    const recovery = alternatives?.length ? <VoiceStartLinks options={alternatives} params={params} />
+      : legacyFallback ? <Link to={`?${voiceParams(params, alias)}`}>Вернуться к исходной озвучке</Link> : null;
     if (voice !== null || request.status === 'error') {
       return (
         <Alert role="alert" color="red" title={voice !== null ? 'Выбранная озвучка недоступна' : 'Не удалось загрузить аниме'}>
@@ -178,19 +193,45 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
     }
     return <Alert color="gray" title="Аниме не найдено">{recovery ?? 'Возможно, ссылка устарела.'}</Alert>;
   }
+
+  const currentVoice = indexedVoices?.find((option) => option.alias === title.alias);
+  const voices = currentVoice && indexedVoices && indexedVoices.length > 1 ? indexedVoices : undefined;
+  const currentRange = currentVoice?.episodeRange;
+  const ordinal = voiceEpisodeNumber(title.episodes, currentIndex, currentRange);
+  const choices = voices?.filter((option) => option === currentVoice || !option.episodeRange
+    || (ordinal !== undefined && rangeContains(option.episodeRange, ordinal)));
+  const starts = voices?.filter((option, _, siblings) => {
+    if (option === currentVoice || !option.episodeRange) return false;
+    if (ordinal === undefined) return true;
+    const provider = option.alias.slice(0, option.alias.indexOf(':') + 1);
+    return siblings.some((other) => other !== option && other.alias.startsWith(provider));
+  });
+
+  function changeVoice(nextAlias: string) {
+    const target = choices?.find((option) => option.alias === nextAlias);
+    if (!target || target === currentVoice) return;
+    setParams(voiceParams(params, target.alias), {
+      state: { voiceEpisodeNumber: ordinal, voiceEpisodeRange: target.episodeRange },
+    });
+  }
+
   return (
     <Stack gap="lg">
       <Group gap="sm" align="baseline" className={styles.heading}>
         <Title order={1}>{title.name}</Title>
         {episode && <Text c="dimmed" size="lg" id="playback-heading">{episodeCaption(episode, currentIndex, title.episodes.length)}</Text>}
       </Group>
-      {voices && (
-        <NativeSelect aria-label="Озвучка" size="md" radius="xl" value={title.alias}
-          data={voices.map((voice) => ({ value: voice.alias, label: voice.source }))}
+      {choices && (
+        <NativeSelect aria-label="Озвучка" size="md" radius="xl" value={title.alias} disabled={choices.length === 1}
+          data={choices.map((option) => ({ value: option.alias, label: voiceLabel(option) }))}
           onChange={(event) => changeVoice(event.currentTarget.value)} />
       )}
+      {currentRange && episode && ordinal === undefined && (
+        <Text role="status" size="sm" c="dimmed">Список серий у источника изменился. Нельзя продолжить с той же серии в другой озвучке.</Text>
+      )}
+      {starts && starts.length > 0 && <VoiceStartLinks options={starts} params={params} />}
       <div className={styles.theater}>
-        <Playback title={title} episode={episode} sourceKey={source.key} hasSelection={selectedId !== null} />
+        <Playback title={title} episode={episode} sourceKey={source.key} hasSelection={selectedId !== null} rangeMismatch={rangeMismatch} />
         {title.episodes.length > 0 && (
           <EpisodeNavigation key={episode?.id ?? selectedId} episodes={title.episodes} currentIndex={currentIndex} voice={voice} />
         )}

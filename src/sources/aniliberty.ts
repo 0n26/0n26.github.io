@@ -48,6 +48,7 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
     alias,
     name,
     alternateName: alternateName === name ? undefined : alternateName,
+    searchName: alternative !== name && alternative !== alternateName ? alternative : undefined,
     poster: imageUrl(release.poster),
     year: positiveInteger(release.year) ? release.year : undefined,
     id: positiveInteger(release.id) ? release.id : undefined,
