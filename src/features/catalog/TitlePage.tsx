@@ -7,6 +7,7 @@ import { ReleaseCard } from './ReleaseCard';
 import { Player } from '../player/Player';
 import { useSourceRequest } from './useSourceRequest';
 import { EpisodeNavigation, episodeCaption } from './EpisodeNavigation';
+import { titleMetaRows } from './titleMeta';
 import styles from './TitlePage.module.css';
 
 const restrictionMessages = {
@@ -178,6 +179,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
     }
     return <Alert color="gray" title="Аниме не найдено">{recovery ?? 'Возможно, ссылка устарела.'}</Alert>;
   }
+  const metaRows = titleMetaRows(title);
   return (
     <Stack gap="lg">
       <Group gap="sm" align="baseline" className={styles.heading}>
@@ -200,6 +202,16 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
           <strong>О тайтле</strong>
           <span>{source.name}{title.year && ` · ${title.year}`}</span>
         </summary>
+        {metaRows.length > 0 && (
+          <dl className={styles.meta}>
+            {metaRows.map(({ label, value }) => (
+              <div key={label} className={styles.metaRow}>
+                <dt>{label}:</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
         <div className={styles.synopsis}>
           {title.poster && <Image src={title.poster} alt="" w={90} radius="sm" loading="lazy" />}
           <Stack gap="xs">

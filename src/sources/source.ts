@@ -10,6 +10,11 @@ export interface CatalogEntry {
   poster?: string;
   year?: number;
   id?: number;
+  type?: string;
+  season?: string;
+  genres?: readonly string[];
+  episodesTotal?: number;
+  episodeDurationMinutes?: number;
 }
 
 export interface CatalogResult {

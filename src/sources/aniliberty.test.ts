@@ -101,6 +101,56 @@ it('loads similar releases and franchise chronology without duplicates', async (
   });
 });
 
+it('normalizes title metadata for the about section', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    alias: 'meta-release',
+    name: { main: 'Метаданные' },
+    year: 2026,
+    type: { value: 'TV', description: 'ТВ' },
+    season: { value: 'autumn', description: 'Осень' },
+    genres: [
+      { id: 26, name: 'Исторический' },
+      { id: 11, name: 'Романтика' },
+      { id: 26, name: 'Исторический' },
+      { id: 1, name: '   ' },
+      { name: 42 },
+    ],
+    episodes_total: 12,
+    average_duration_of_episode: 24,
+    is_blocked_by_geo: false,
+    is_blocked_by_copyrights: false,
+  }));
+
+  await expect(source.getTitle('meta-release', new AbortController().signal)).resolves.toMatchObject({
+    type: 'ТВ',
+    season: 'Осень',
+    genres: ['Исторический', 'Романтика'],
+    year: 2026,
+    episodesTotal: 12,
+    episodeDurationMinutes: 24,
+  });
+});
+
+it('maps raw metadata values and drops invalid ones', async () => {
+  const source = createAniLiberty(async () => Response.json({
+    alias: 'meta-release',
+    name: { main: 'Метаданные' },
+    type: { value: 'movie' },
+    season: 'summer',
+    genres: 'not a list',
+    episodes_total: '12',
+    average_duration_of_episode: 0,
+  }));
+
+  await expect(source.getTitle('meta-release', new AbortController().signal)).resolves.toMatchObject({
+    type: 'Фильм',
+    season: 'Лето',
+    genres: undefined,
+    episodesTotal: undefined,
+    episodeDurationMinutes: undefined,
+  });
+});
+
 it('keeps published episode IDs and does not advertise a next episode for a finished season', async () => {
   const source = createAniLiberty(async (input) => {
     expect(String(input)).toBe('https://anilibria.top/api/v1/anime/schedule/week');

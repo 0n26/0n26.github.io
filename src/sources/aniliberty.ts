@@ -6,6 +6,18 @@ const API = `${ORIGIN}/api/v1/anime`;
 const QUALITY_LEVELS = [480, 720, 1080] as const;
 const IMAGE_SIZES = ['preview', 'src', 'thumbnail'] as const;
 const ALIAS = /^[a-z0-9_-]+$/i;
+const TYPE_NAMES: Readonly<Record<string, string>> = {
+  tv: 'ТВ',
+  movie: 'Фильм',
+  special: 'Спешл',
+};
+const SEASON_NAMES: Readonly<Record<string, string>> = {
+  winter: 'Зима',
+  spring: 'Весна',
+  summer: 'Лето',
+  autumn: 'Осень',
+  fall: 'Осень',
+};
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -36,6 +48,29 @@ function imageUrl(value: unknown): string | undefined {
   }
 }
 
+function localized(value: unknown, names: Readonly<Record<string, string>>): string | undefined {
+  const row = record(value);
+  const label = text(row?.description) ?? text(row?.name);
+  if (label) return label;
+  const raw = text(row?.value) ?? text(value);
+  return raw ? names[raw.toLowerCase()] ?? raw : undefined;
+}
+
+function genresFrom(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return;
+  const genres: string[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    const name = text(record(item)?.name);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    genres.push(name);
+  }
+  return genres.length > 0 ? genres : undefined;
+}
+
 function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefined {
   const alias = text(release.alias);
   if (!alias || !ALIAS.test(alias)) return;
@@ -51,6 +86,12 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
     poster: imageUrl(release.poster),
     year: positiveInteger(release.year) ? release.year : undefined,
     id: positiveInteger(release.id) ? release.id : undefined,
+    type: localized(release.type, TYPE_NAMES),
+    season: localized(release.season, SEASON_NAMES),
+    genres: genresFrom(release.genres),
+    episodesTotal: positiveInteger(release.episodes_total) ? release.episodes_total : undefined,
+    episodeDurationMinutes: positiveInteger(release.average_duration_of_episode)
+      ? release.average_duration_of_episode : undefined,
   };
 }
 
