@@ -34,7 +34,7 @@ export function App() {
                 <NavLink to="/" end className={`${styles.navLink} ${styles.secondaryLink}`}>Каталог</NavLink>
                 <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
                 <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
-                <NavLink to="/about" className={`${styles.navLink} ${styles.secondaryLink}`}>О проекте</NavLink>
+                <NavLink to="/about" className={`${styles.navLink} ${styles.aboutLink}`}>О проекте</NavLink>
               </Group>
             )}
           </Group>

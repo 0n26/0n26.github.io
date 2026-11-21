@@ -6,10 +6,8 @@ import styles from './AboutPage.module.css';
 
 type Contributor = {
   login: string;
-  html_url: string;
   avatar_url: string;
   contributions: number;
-  type?: string;
 };
 
 function commitsLabel(count: number): string {
@@ -21,22 +19,21 @@ function commitsLabel(count: number): string {
 }
 
 const REPOSITORY = '0n26/0n26.github.io';
+const REPOSITORY_URL = `https://github.com/${REPOSITORY}`;
+// shortcut: load the first page, paginate if the repository reaches 100 contributors.
 const CONTRIBUTORS_URL = `https://api.github.com/repos/${REPOSITORY}/contributors?per_page=100`;
 
-function isExcluded(login: string): boolean {
-  const lower = login.toLowerCase();
-  return (
-    lower.includes('bot') ||
-    lower.includes('codex') ||
-    lower.includes('claude') ||
-    lower.includes('copilot') ||
-    lower.includes('gpt')
-  );
+function isContributor(item: unknown): item is Contributor {
+  if (typeof item !== 'object' || item === null) return false;
+  const { type, login, avatar_url, contributions } = item as Record<string, unknown>;
+  return type === 'User' &&
+    typeof login === 'string' && /^[a-z\d-]{1,39}$/i.test(login) &&
+    typeof avatar_url === 'string' && avatar_url.startsWith('https://avatars.githubusercontent.com/') &&
+    typeof contributions === 'number' && Number.isSafeInteger(contributions) && contributions >= 0;
 }
 
 export function AboutPage() {
-  const [contributors, setContributors] = useState<Contributor[] | null>(null);
-  const [error, setError] = useState(false);
+  const [contributors, setContributors] = useState<Contributor[] | 'error' | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -44,18 +41,14 @@ export function AboutPage() {
       headers: { Accept: 'application/vnd.github+json' },
       signal: controller.signal,
     })
-      .then((response) => {
-        if (!response.ok) throw new Error('failed');
-        return response.json() as Promise<Contributor[]>;
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
+        const data: unknown = response.status === 204 ? [] : await response.json();
+        if (!Array.isArray(data)) throw new Error('Invalid contributor list');
+        if (!controller.signal.aborted) setContributors(data.filter(isContributor));
       })
-      .then((data) => {
-        const people = data
-          .filter((item) => item.type !== 'Bot' && !isExcluded(item.login))
-          .sort((a, b) => b.contributions - a.contributions);
-        setContributors(people);
-      })
-      .catch((err) => {
-        if (err?.name !== 'AbortError') setError(true);
+      .catch(() => {
+        if (!controller.signal.aborted) setContributors('error');
       });
     return () => controller.abort();
   }, []);
@@ -76,10 +69,9 @@ export function AboutPage() {
       <section className={styles.section} aria-labelledby="about-description">
         <Title id="about-description" order={2} size="h3">Описание</Title>
         <Text>
-          Приложение объединяет несколько источников в один каталог: AniLiberty и AnimeVost. Поиск, фильтры
-          по жанру и году, недельное расписание, карточки тайтлов с вариантами озвучки и прямые ссылки на
-          серии доступны из одного интерфейса. Видео загружается напрямую от источника: AniLiberty отдаёт HLS,
-          AnimeVost — MP4.
+          Приложение объединяет AniLiberty и AnimeVost в один каталог с поиском, выбором озвучки и прямыми
+          ссылками на серии. Фильтры по жанру и году и недельное расписание доступны для AniLiberty.
+          Видео загружается напрямую от источника: AniLiberty отдаёт HLS, AnimeVost — MP4.
         </Text>
         <Text>
           Каталог и поиск используют статический индекс, который GitHub Pages обновляет раз в сутки. При сбое
@@ -115,33 +107,35 @@ export function AboutPage() {
       <section className={styles.section} aria-labelledby="about-contributors">
         <Title id="about-contributors" order={2} size="h3">Участники</Title>
         <Text c="dimmed" size="sm">
-          Все авторы обновлений репозитория, кроме ботов и автоматических агентов.
+          Участники с аккаунтом GitHub. Боты, отмеченные GitHub, скрыты.
         </Text>
-        {contributors === null && !error && (
+        {contributors === null && (
           <Group role="status" gap="xs">
             <Loader size="xs" aria-hidden />
             <Text>Загружаем список участников…</Text>
           </Group>
         )}
-        {error && (
+        {contributors === 'error' && (
           <Alert color="red" title="Не удалось загрузить список участников">
-            Проверьте подключение и обновите страницу.
+            <Anchor href={`${REPOSITORY_URL}/graphs/contributors`} target="_blank" rel="noopener noreferrer">
+              Посмотреть вклад в репозиторий на GitHub
+            </Anchor>
           </Alert>
         )}
-        {contributors && contributors.length === 0 && (
+        {Array.isArray(contributors) && contributors.length === 0 && (
           <Text c="dimmed">Участники не найдены.</Text>
         )}
-        {contributors && contributors.length > 0 && (
+        {Array.isArray(contributors) && contributors.length > 0 && (
           <div className={styles.contributors}>
             {contributors.map((person) => (
               <Anchor
                 key={person.login}
-                href={person.html_url}
+                href={`https://github.com/${person.login}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={styles.contributor}
               >
-                <Avatar src={person.avatar_url} alt={person.login} radius="xl" size="md" />
+                <Avatar src={person.avatar_url} alt="" radius="xl" size="md" />
                 <Stack gap={0}>
                   <Text fw={600} size="sm">{person.login}</Text>
                   <Text size="xs" c="dimmed">{person.contributions} {commitsLabel(person.contributions)}</Text>
@@ -155,11 +149,11 @@ export function AboutPage() {
       <section className={styles.section} aria-labelledby="about-links">
         <Title id="about-links" order={2} size="h3">Ссылки</Title>
         <Group className={styles.links}>
-          <Anchor href={`https://github.com/${REPOSITORY}`} target="_blank" rel="noopener noreferrer">
+          <Anchor href={REPOSITORY_URL} target="_blank" rel="noopener noreferrer">
             Репозиторий на GitHub
           </Anchor>
           <Link to="/changelog" className={styles.link}>История изменений</Link>
-          <Anchor href="https://github.com/0n26/0n26.github.io/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">
+          <Anchor href={`${REPOSITORY_URL}/blob/main/CONTRIBUTING.md`} target="_blank" rel="noopener noreferrer">
             Правила участия
           </Anchor>
         </Group>
