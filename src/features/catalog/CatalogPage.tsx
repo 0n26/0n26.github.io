@@ -143,6 +143,11 @@ function CatalogResults({ source, query, page, genre, year, changePage }: Catalo
       )}
       {request.status === 'ready' && (
         <>
+          {request.data.incomplete && (
+            <Alert color="yellow" title="Неполная выдача">
+              Не все источники ответили. Часть результатов может отсутствовать.
+            </Alert>
+          )}
           {request.data.page > request.data.totalPages ? (
             <Alert color="gray" title="Страница не найдена">
               <Button variant="light" size="xs" onClick={() => changePage(1)}>К первой странице</Button>

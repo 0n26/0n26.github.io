@@ -103,6 +103,11 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
   const selectedId = params.get('episode');
   const initialVoice = params.get('voice') ?? alias;
   const [selectedVoice, setSelectedVoice] = useState(initialVoice);
+
+  useEffect(() => {
+    const voice = params.get('voice');
+    if (voice && voice !== selectedVoice) setSelectedVoice(voice);
+  }, [params, selectedVoice]);
   const [pendingEpisodeNumber, setPendingEpisodeNumber] = useState<number | null>(null);
   const [voices, setVoices] = useState<readonly VoiceOption[]>([]);
 

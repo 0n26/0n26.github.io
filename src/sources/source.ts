@@ -19,6 +19,7 @@ export interface CatalogResult {
   items: readonly CatalogEntry[];
   page: number;
   totalPages: number;
+  incomplete?: boolean;
 }
 
 export interface CatalogFilters {

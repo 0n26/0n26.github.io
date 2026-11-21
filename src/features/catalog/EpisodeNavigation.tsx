@@ -1,7 +1,7 @@
 import { NativeSelect, Paper, Title, UnstyledButton, useMantineTheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { useId, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import type { Episode } from '../../sources/source';
 import styles from './EpisodeNavigation.module.css';
 
@@ -12,13 +12,16 @@ export function episodeCaption(episode: Episode, index: number, total: number) {
   return `Серия ${episode.number}${count}${episode.name ? ` · ${episode.name}` : ''}`;
 }
 
-function episodeUrl(episode: Episode) {
-  return `?${new URLSearchParams({ episode: episode.id })}`;
+function episodeUrl(episode: Episode, voice: string | null) {
+  const next = new URLSearchParams({ episode: episode.id });
+  if (voice) next.set('voice', voice);
+  return `?${next}`;
 }
 
 export function EpisodeNavigation({ episodes, currentIndex }: { episodes: readonly Episode[]; currentIndex: number }) {
   const { breakpoints } = useMantineTheme();
   const desktop = useMediaQuery(`(min-width: ${breakpoints.sm})`, undefined, { getInitialValueInEffect: false });
+  const [params] = useSearchParams();
   const [expanded, setExpanded] = useState(false);
   const [group, setGroup] = useState(Math.floor(Math.max(0, currentIndex) / groupSize));
   const pickerId = useId();
@@ -34,7 +37,7 @@ export function EpisodeNavigation({ episodes, currentIndex }: { episodes: readon
     const label = desktop ? `Серия ${episode.number}` : back ? 'Назад' : 'Далее';
     const description = `${back ? 'Назад' : 'Далее'}: ${episodeCaption(episode, currentIndex + direction, episodes.length)}`;
     return (
-      <Link to={episodeUrl(episode)} className={back ? styles.previous : styles.next} aria-label={description} title={description}>
+      <Link to={episodeUrl(episode, params.get('voice'))} className={back ? styles.previous : styles.next} aria-label={description} title={description}>
         {back ? `← ${label}` : `${label} →`}
       </Link>
     );
@@ -55,7 +58,7 @@ export function EpisodeNavigation({ episodes, currentIndex }: { episodes: readon
           const label = episodeCaption(episode, index, episodes.length);
           return (
             <li key={episode.id} className={episode.name ? styles.named : undefined}>
-              <Link to={episodeUrl(episode)} aria-current={index === currentIndex ? 'page' : undefined} aria-label={label} title={label}>
+              <Link to={episodeUrl(episode, params.get('voice'))} aria-current={index === currentIndex ? 'page' : undefined} aria-label={label} title={label}>
                 {episode.number}{episode.name && ` · ${episode.name}`}
               </Link>
             </li>
