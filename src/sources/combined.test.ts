@@ -82,18 +82,67 @@ it('shows successful results on a partial failure and retries the failed provide
 it('routes multi-genre filters only to providers with filter support', async () => {
   const a: AnimeSource = {
     ...provider('aniliberty'),
-    getCatalogFilters: vi.fn(async () => ({ genres: [{ id: 1, name: 'Комедия' }], years: [2023] })),
+    getCatalogFilters: vi.fn(async () => ({
+      genres: [{ id: 1, name: 'Комедия' }],
+      years: [2023],
+      types: [{ value: 'TV', label: 'ТВ' }],
+      publishStatuses: [{ value: 'IS_ONGOING', label: 'Онгоинг' }],
+      sorting: [{ value: 'RATING_DESC', label: 'По рейтингу' }],
+      seasons: [{ value: 'winter', label: 'Зима' }],
+      ageRatings: [{ value: 'R16_PLUS', label: '16+' }],
+    })),
   };
   const b = provider('animevost');
   const source = createCombinedSource([a, b], async () => null);
 
-  await expect(source.getCatalog('', 1, signal, { genres: [1, 8], year: 2023 })).resolves.toMatchObject({
+  const filters = { genres: [1, 8], yearFrom: 2023, yearTo: 2023 };
+  await expect(source.getCatalog('', 1, signal, filters)).resolves.toMatchObject({
     items: [{ alias: 'aniliberty:1' }],
   });
-  expect(a.getCatalog).toHaveBeenCalledWith('', 1, signal, { genres: [1, 8], year: 2023 });
+  expect(a.getCatalog).toHaveBeenCalledWith('', 1, signal, filters);
   expect(b.getCatalog).not.toHaveBeenCalled();
 
   await expect(source.getCatalog('', 1, signal, { genres: [] })).resolves.toMatchObject({
     items: [{ alias: 'aniliberty:1' }, { alias: 'animevost:1' }],
+  });
+});
+
+it('treats every new filter as active and merges reference options', async () => {
+  const a: AnimeSource = {
+    ...provider('aniliberty'),
+    getCatalogFilters: vi.fn(async () => ({
+      genres: [{ id: 1, name: 'Комедия' }],
+      years: [2023],
+      types: [{ value: 'TV', label: 'ТВ' }],
+      publishStatuses: [{ value: 'IS_ONGOING', label: 'Онгоинг' }],
+      sorting: [{ value: 'RATING_DESC', label: 'По рейтингу' }],
+      seasons: [{ value: 'winter', label: 'Зима' }],
+      ageRatings: [{ value: 'R16_PLUS', label: '16+' }],
+    })),
+  };
+  const b = provider('animevost');
+  const source = createCombinedSource([a, b], async () => null);
+  const filters = {
+    types: ['TV'],
+    publishStatuses: ['IS_ONGOING'],
+    sorting: 'RATING_DESC',
+    seasons: ['winter'],
+    ageRatings: ['R16_PLUS'],
+  };
+
+  await expect(source.getCatalog('', 1, signal, filters)).resolves.toMatchObject({
+    items: [{ alias: 'aniliberty:1' }],
+  });
+  expect(a.getCatalog).toHaveBeenCalledWith('', 1, signal, filters);
+  expect(b.getCatalog).not.toHaveBeenCalled();
+
+  await expect(source.getCatalogFilters!(signal)).resolves.toMatchObject({
+    genres: [{ id: 1, name: 'Комедия' }],
+    years: [2023],
+    types: [{ value: 'TV', label: 'ТВ' }],
+    publishStatuses: [{ value: 'IS_ONGOING', label: 'Онгоинг' }],
+    sorting: [{ value: 'RATING_DESC', label: 'По рейтингу' }],
+    seasons: [{ value: 'winter', label: 'Зима' }],
+    ageRatings: [{ value: 'R16_PLUS', label: '16+' }],
   });
 });

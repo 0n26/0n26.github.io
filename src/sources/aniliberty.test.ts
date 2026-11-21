@@ -51,7 +51,7 @@ it('combines search, genre, and exact year before requesting the matching page',
     });
   });
 
-  await expect(source.getCatalog('Фрирен', 2, signal, { genres: [15], year: 2023 })).resolves.toMatchObject({
+  await expect(source.getCatalog('Фрирен', 2, signal, { genres: [15], yearFrom: 2023, yearTo: 2023 })).resolves.toMatchObject({
     items: [{ alias: 'frieren', name: 'Фрирен', year: 2023 }],
     page: 2,
     totalPages: 3,
@@ -70,6 +70,62 @@ it('joins several genre ids into one comma-separated filter and skips invalid id
 
   await expect(source.getCatalog('', 1, signal, { genres: [1, 0, 8] })).resolves.toMatchObject({
     items: [], page: 1, totalPages: 1,
+  });
+});
+
+it('maps all catalog filters to AniLiberty params and drops unknown values', async () => {
+  const source = createAniLiberty(async (input) => {
+    const url = new URL(String(input));
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      'f[types]': 'TV,WEB',
+      'f[publish_statuses]': 'IS_ONGOING',
+      'f[sorting]': 'RATING_DESC',
+      'f[seasons]': 'winter,spring',
+      'f[years][from_year]': '2000',
+      'f[years][to_year]': '2010',
+      'f[age_ratings]': 'R12_PLUS,R16_PLUS',
+      limit: '24',
+      page: '1',
+    });
+    return Response.json({
+      data: [], meta: { pagination: { current_page: 1, total_pages: 1 } },
+    });
+  });
+
+  await expect(source.getCatalog('', 1, new AbortController().signal, {
+    types: ['TV', 'WEB', 'INVALID'],
+    publishStatuses: ['IS_ONGOING', 'INVALID'],
+    sorting: 'RATING_DESC',
+    seasons: ['winter', 'spring', 'INVALID'],
+    yearFrom: 2010,
+    yearTo: 2000,
+    ageRatings: ['R12_PLUS', 'R16_PLUS', 'INVALID'],
+  })).resolves.toMatchObject({ items: [], page: 1, totalPages: 1 });
+});
+
+it('normalizes all catalog reference options', async () => {
+  const references: Record<string, unknown[]> = {
+    genres: [{ id: 1, name: 'Комедия' }, { id: 0, name: 'Брак' }],
+    years: [2021, 2020, 2021],
+    types: [{ value: 'TV', description: 'ТВ' }, { value: 'INVALID', description: 'Брак' }],
+    'publish-statuses': [{ value: 'IS_ONGOING', description: 'Онгоинг' }],
+    sorting: [{ value: 'RATING_DESC', label: 'Самый высокий рейтинг', description: 'Сначала популярные' }],
+    seasons: [{ value: 'winter', description: 'Зима' }],
+    'age-ratings': [{ value: 'R16_PLUS', label: '16+', description: 'С шестнадцати лет' }],
+  };
+  const source = createAniLiberty(async (input) => {
+    const field = new URL(String(input)).pathname.split('/').pop() ?? '';
+    return Response.json(references[field] ?? []);
+  });
+
+  await expect(source.getCatalogFilters!(new AbortController().signal)).resolves.toEqual({
+    genres: [{ id: 1, name: 'Комедия' }],
+    years: [2021, 2020],
+    types: [{ value: 'TV', label: 'ТВ', description: undefined }],
+    publishStatuses: [{ value: 'IS_ONGOING', label: 'Онгоинг', description: undefined }],
+    sorting: [{ value: 'RATING_DESC', label: 'Самый высокий рейтинг', description: 'Сначала популярные' }],
+    seasons: [{ value: 'winter', label: 'Зима', description: undefined }],
+    ageRatings: [{ value: 'R16_PLUS', label: '16+', description: 'С шестнадцати лет' }],
   });
 });
 
