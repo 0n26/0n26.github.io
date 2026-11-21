@@ -1,18 +1,13 @@
-import { ActionIcon, Alert, Button, Drawer, Group, Loader, NativeSelect, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
-import { useCallback, useState } from 'react';
+import { ActionIcon, Alert, Button, Drawer, Group, Loader, MultiSelect, NativeSelect, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
+import { useCallback, useMemo, useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { useSearchParams } from 'react-router';
 import { defaultSource } from '../../sources';
 import type { AnimeSource, CatalogFilters } from '../../sources/source';
+import { MAX_GENRES, catalogParams, parseGenreIds, positiveParam } from './catalogFilters';
 import { ReleaseCard } from './ReleaseCard';
 import { useSourceRequest } from './useSourceRequest';
 import styles from './Catalog.module.css';
-
-function positiveParam(value: string | null | undefined): number | undefined {
-  if (!value || !/^[1-9]\d*$/.test(value)) return;
-  const number = Number(value);
-  if (Number.isSafeInteger(number)) return number;
-}
 
 export function CatalogPage() {
   const [params, setParams] = useSearchParams();
@@ -20,16 +15,12 @@ export function CatalogPage() {
   const query = params.get('q')?.trim() ?? '';
   const page = positiveParam(params.get('page')) ?? 1;
   const getFilters = source.getCatalogFilters;
-  const genre = getFilters ? positiveParam(params.get('genre')) : undefined;
+  const genreKey = getFilters ? params.getAll('genre').join(',') : '';
+  const genres = useMemo(() => parseGenreIds(genreKey), [genreKey]);
   const year = getFilters ? positiveParam(params.get('year')) : undefined;
 
-  function changeCatalog(nextQuery: string, nextPage: number, filters: CatalogFilters = { genre, year }) {
-    const next = new URLSearchParams();
-    if (nextQuery) next.set('q', nextQuery);
-    if (nextPage > 1) next.set('page', String(nextPage));
-    if (filters.genre) next.set('genre', String(filters.genre));
-    if (filters.year) next.set('year', String(filters.year));
-    setParams(next);
+  function changeCatalog(nextQuery: string, nextPage: number, filters: CatalogFilters = { genres, year }) {
+    setParams(catalogParams(nextQuery, nextPage, filters));
   }
 
   function search(event: SubmitEvent<HTMLFormElement>) {
@@ -55,28 +46,33 @@ export function CatalogPage() {
           />
         </form>
         {source && getFilters && (
-          <CatalogFilterFields key={source.key} load={getFilters} genre={genre} year={year}
+          <CatalogFilterFields key={`${source.key}:${genreKey}:${year ?? ''}`} load={getFilters} genres={genres} year={year}
             apply={(filters) => changeCatalog(query, 1, filters)} />
         )}
       </div>
-      <CatalogResults source={source} query={query} page={page} genre={genre} year={year} changePage={(next) => changeCatalog(query, next)} />
+      <CatalogResults source={source} query={query} page={page} genres={genres} year={year} changePage={(next) => changeCatalog(query, next)} />
     </Stack>
   );
 }
 
-function CatalogFilterFields({ load, genre, year, apply }: CatalogFilters & {
+function CatalogFilterFields({ load, genres, year, apply }: CatalogFilters & {
   load: NonNullable<AnimeSource['getCatalogFilters']>;
   apply: (filters: CatalogFilters) => void;
 }) {
   const [opened, setOpened] = useState(false);
+  const [selected, setSelected] = useState<readonly number[]>(genres ?? []);
   const request = useSourceRequest(load);
   const options = request.status === 'ready' ? request.data : undefined;
-  const genreName = options?.genres.find(({ id }) => id === genre)?.name ?? `Жанр ${genre}`;
+  const names = new Map<number, string>(options?.genres.map(({ id, name }) => [id, name] as const) ?? []);
+  const data = options?.genres.map(({ id, name }) => ({ value: String(id), label: name })) ?? [];
+  for (const id of genres ?? []) {
+    if (!names.has(id)) data.push({ value: String(id), label: `Жанр ${id}` });
+  }
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    apply({ genre: positiveParam(String(form.get('genre'))), year: positiveParam(String(form.get('year'))) });
+    apply({ genres: selected.length ? selected : undefined, year: positiveParam(String(form.get('year'))) });
     setOpened(false);
   }
 
@@ -88,12 +84,17 @@ function CatalogFilterFields({ load, genre, year, apply }: CatalogFilters & {
           <path d="M2 7h5m6 0h9M2 17h11m6 0h3" /><circle cx="10" cy="7" r="3" /><circle cx="16" cy="17" r="3" />
         </svg>
       </ActionIcon>
-      {(genre || year) && (
+      {(genres?.length || year) && (
         <Group gap="xs" w="100%" aria-label="Выбранные фильтры" role="group">
-          {genre && <Button variant="light" radius="xl" size="xs" aria-label={`Снять фильтр: ${genreName}`}
-            onClick={() => apply({ year })}>{genreName} ×</Button>}
+          {(genres ?? []).map((id) => {
+            const label = names.get(id) ?? `Жанр ${id}`;
+            return (
+              <Button key={id} variant="light" radius="xl" size="xs" aria-label={`Снять фильтр: ${label}`}
+                onClick={() => apply({ genres: genres?.filter((item) => item !== id), year })}>{label} ×</Button>
+            );
+          })}
           {year && <Button variant="light" radius="xl" size="xs" aria-label={`Снять фильтр: ${year}`}
-            onClick={() => apply({ genre })}>{year} ×</Button>}
+            onClick={() => apply({ genres })}>{year} ×</Button>}
         </Group>
       )}
       <Drawer opened={opened} onClose={() => setOpened(false)} title="Фильтры" position="right" size="sm"
@@ -103,11 +104,18 @@ function CatalogFilterFields({ load, genre, year, apply }: CatalogFilters & {
         {opened && options && (
           <form onSubmit={submit}>
             <Stack>
-              <NativeSelect key={`genre:${genre ?? ''}`} name="genre" label="Жанр" defaultValue={genre ?? ''}>
-                <option value="">Все жанры</option>
-                {genre && !options.genres.some(({ id }) => id === genre) && <option value={genre}>Жанр недоступен</option>}
-                {options.genres.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-              </NativeSelect>
+              <MultiSelect
+                label="Жанры"
+                description="В выдаче будут тайтлы со всеми выбранными жанрами"
+                placeholder="Все жанры"
+                data={data}
+                value={selected.map(String)}
+                onChange={(values) => setSelected(values.map(Number))}
+                searchable
+                clearable
+                maxValues={MAX_GENRES}
+                nothingFoundMessage="Ничего не найдено"
+              />
               <NativeSelect key={`year:${year ?? ''}`} name="year" label="Год" defaultValue={year ?? ''}>
                 <option value="">Все годы</option>
                 {year && !options.years.includes(year) && <option value={year}>{year}</option>}
@@ -122,13 +130,13 @@ function CatalogFilterFields({ load, genre, year, apply }: CatalogFilters & {
   );
 }
 
-function CatalogResults({ source, query, page, genre, year, changePage }: CatalogFilters & {
+function CatalogResults({ source, query, page, genres, year, changePage }: CatalogFilters & {
   source: AnimeSource;
   query: string;
   page: number;
   changePage: (page: number) => void;
 }) {
-  const load = useCallback((signal: AbortSignal) => source.getCatalog(query, page, signal, { genre, year }), [source, query, page, genre, year]);
+  const load = useCallback((signal: AbortSignal) => source.getCatalog(query, page, signal, { genres, year }), [source, query, page, genres, year]);
   const request = useSourceRequest(load);
   const routePrefix = `/anime/${encodeURIComponent(source.key)}`;
 
@@ -155,7 +163,7 @@ function CatalogResults({ source, query, page, genre, year, changePage }: Catalo
           ) : request.data.items.length === 0 ? (
             <Text role="status" c="dimmed">
               {request.data.page > 1 ? 'На этой странице нет новых тайтлов.'
-                : query || genre || year ? 'Ничего не найдено. Измените запрос или фильтры.' : 'Каталог пуст.'}
+                : query || genres?.length || year ? 'Ничего не найдено. Измените запрос или фильтры.' : 'Каталог пуст.'}
             </Text>
           ) : (
             <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }} spacing={{ base: 'sm', sm: 'md' }} verticalSpacing="lg">

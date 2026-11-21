@@ -78,3 +78,22 @@ it('shows successful results on a partial failure and retries the failed provide
   expect(retry.incomplete).not.toBe(true);
   expect(retry.items.map(({ alias }) => alias)).toEqual(['aniliberty:1', 'animevost:1']);
 });
+
+it('routes multi-genre filters only to providers with filter support', async () => {
+  const a: AnimeSource = {
+    ...provider('aniliberty'),
+    getCatalogFilters: vi.fn(async () => ({ genres: [{ id: 1, name: 'Комедия' }], years: [2023] })),
+  };
+  const b = provider('animevost');
+  const source = createCombinedSource([a, b], async () => null);
+
+  await expect(source.getCatalog('', 1, signal, { genres: [1, 8], year: 2023 })).resolves.toMatchObject({
+    items: [{ alias: 'aniliberty:1' }],
+  });
+  expect(a.getCatalog).toHaveBeenCalledWith('', 1, signal, { genres: [1, 8], year: 2023 });
+  expect(b.getCatalog).not.toHaveBeenCalled();
+
+  await expect(source.getCatalog('', 1, signal, { genres: [] })).resolves.toMatchObject({
+    items: [{ alias: 'aniliberty:1' }, { alias: 'animevost:1' }],
+  });
+});

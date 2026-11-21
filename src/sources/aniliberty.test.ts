@@ -51,10 +51,25 @@ it('combines search, genre, and exact year before requesting the matching page',
     });
   });
 
-  await expect(source.getCatalog('Фрирен', 2, signal, { genre: 15, year: 2023 })).resolves.toMatchObject({
+  await expect(source.getCatalog('Фрирен', 2, signal, { genres: [15], year: 2023 })).resolves.toMatchObject({
     items: [{ alias: 'frieren', name: 'Фрирен', year: 2023 }],
     page: 2,
     totalPages: 3,
+  });
+});
+
+it('joins several genre ids into one comma-separated filter and skips invalid ids', async () => {
+  const signal = new AbortController().signal;
+  const source = createAniLiberty(async (input) => {
+    const url = new URL(String(input));
+    expect(url.searchParams.getAll('f[genres]')).toEqual(['1,8']);
+    return Response.json({
+      data: [], meta: { pagination: { current_page: 1, total_pages: 1 } },
+    });
+  });
+
+  await expect(source.getCatalog('', 1, signal, { genres: [1, 0, 8] })).resolves.toMatchObject({
+    items: [], page: 1, totalPages: 1,
   });
 });
 

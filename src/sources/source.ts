@@ -20,7 +20,7 @@ export interface CatalogResult {
 }
 
 export interface CatalogFilters {
-  genre?: number;
+  genres?: readonly number[];
   year?: number;
 }
 

@@ -122,7 +122,8 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
     async getCatalog(query, page, signal, filters) {
       const url = new URL(`${API}/catalog/releases`);
       if (query) url.searchParams.set('f[search]', query);
-      if (positiveInteger(filters?.genre)) url.searchParams.set('f[genres]', String(filters.genre));
+      const genreIds = (filters?.genres ?? []).filter(positiveInteger);
+      if (genreIds.length) url.searchParams.set('f[genres]', genreIds.join(','));
       if (positiveInteger(filters?.year)) {
         const year = String(filters.year);
         url.searchParams.set('f[years][from_year]', year);

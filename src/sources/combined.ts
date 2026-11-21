@@ -41,7 +41,7 @@ export function createCombinedSource(sources: readonly AnimeSource[], loadIndex:
 
     async getCatalog(query, page, signal, filters) {
       signal.throwIfAborted();
-      const hasFilters = Boolean(filters?.genre || filters?.year);
+      const hasFilters = Boolean(filters?.genres?.length || filters?.year);
       const selectedSources = hasFilters
         ? availableSources.filter((source) => source.getCatalogFilters)
         : availableSources;
