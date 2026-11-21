@@ -75,7 +75,6 @@ function RelatedSections({ getRelated, title, routePrefix }: {
   if (request.status === 'error') return null;
 
   const { similar, franchises } = request.data;
-  if (similar.length === 0 && franchises.length === 0) return null;
 
   return (
     <Stack gap="lg">
@@ -87,16 +86,20 @@ function RelatedSections({ getRelated, title, routePrefix }: {
           </SimpleGrid>
         </section>
       )}
-      {franchises.length > 0 && (
-        <section aria-labelledby="franchise-heading">
-          <Title order={2} size="h3" id="franchise-heading" mb="sm">Франшиза (Хронология)</Title>
+      <section aria-labelledby="franchise-heading">
+        <Title order={2} size="h3" id="franchise-heading" mb="sm">
+          {franchises.length > 0 ? 'Франшиза (Хронология)' : 'Ни одной связанной франшизы'}
+        </Title>
+        {franchises.length > 0 ? (
           <Stack gap="md">
             {franchises.map((franchise) => (
               <Chronology key={franchise.id} franchise={franchise} currentAlias={title.alias} routePrefix={routePrefix} />
             ))}
           </Stack>
-        </section>
-      )}
+        ) : (
+          <Text c="dimmed">Данный релиз не связан ни с одной франшизой</Text>
+        )}
+      </section>
     </Stack>
   );
 }
