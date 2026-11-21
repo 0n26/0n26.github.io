@@ -1,5 +1,5 @@
 import type { AnimeSource, CatalogEntry, Episode } from './source';
-import { positiveInteger, record, text } from './values';
+import { positiveInteger, record, text } from './values.ts';
 
 const API = 'https://api.animetop.info/v1';
 const PAGE_SIZE = 24;
@@ -21,13 +21,22 @@ function asset(value: unknown, hosts: readonly string[], path: RegExp): URL | un
   return url;
 }
 
+function splitTitle(value: string | undefined): { name: string; alternateName?: string } {
+  const title = text(value);
+  if (!title) return { name: '' };
+  const [russianPart, rest] = title.split(/\s*\/\s*/, 2);
+  const name = text(russianPart) ?? title;
+  const english = rest ? text(rest.replace(/\s*\[[\s\S]*$/, '')) : undefined;
+  return { name, alternateName: english && english !== name ? english : undefined };
+}
+
 function catalogEntry(value: unknown): CatalogEntry | undefined {
   const row = record(value);
-  const name = text(row?.title);
+  const { name, alternateName } = splitTitle(text(row?.title));
   if (!positiveInteger(row?.id) || !name) return;
   const year = Number(row.year);
   return {
-    alias: String(row.id), name,
+    alias: String(row.id), name, alternateName,
     poster: asset(row.urlImagePreview, posters, /^\/uploads\/posts\//)?.href,
     year: positiveInteger(year) ? year : undefined,
     id: positiveInteger(row?.id) ? row.id : undefined,

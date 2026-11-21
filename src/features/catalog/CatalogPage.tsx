@@ -2,7 +2,7 @@ import { ActionIcon, Alert, Button, Drawer, Group, Loader, NativeSelect, Paginat
 import { useCallback, useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { useSearchParams } from 'react-router';
-import { defaultSource, getSource, sources } from '../../sources';
+import { defaultSource } from '../../sources';
 import type { AnimeSource, CatalogFilters } from '../../sources/source';
 import { ReleaseCard } from './ReleaseCard';
 import { useSourceRequest } from './useSourceRequest';
@@ -16,21 +16,19 @@ function positiveParam(value: string | null | undefined): number | undefined {
 
 export function CatalogPage() {
   const [params, setParams] = useSearchParams();
-  const sourceKey = params.get('source');
-  const source = sourceKey === null ? defaultSource : getSource(sourceKey);
+  const source = defaultSource;
   const query = params.get('q')?.trim() ?? '';
   const page = positiveParam(params.get('page')) ?? 1;
-  const getFilters = source?.getCatalogFilters;
+  const getFilters = source.getCatalogFilters;
   const genre = getFilters ? positiveParam(params.get('genre')) : undefined;
   const year = getFilters ? positiveParam(params.get('year')) : undefined;
 
-  function changeCatalog(nextQuery: string, nextPage: number, filters: CatalogFilters = { genre, year }, nextSource = sourceKey) {
+  function changeCatalog(nextQuery: string, nextPage: number, filters: CatalogFilters = { genre, year }) {
     const next = new URLSearchParams();
     if (nextQuery) next.set('q', nextQuery);
     if (nextPage > 1) next.set('page', String(nextPage));
     if (filters.genre) next.set('genre', String(filters.genre));
     if (filters.year) next.set('year', String(filters.year));
-    if (nextSource) next.set('source', nextSource);
     setParams(next);
   }
 
@@ -44,13 +42,6 @@ export function CatalogPage() {
     <Stack gap="lg">
       <Group justify="space-between" gap="xs">
         <Title order={1}>Каталог</Title>
-        {sources.length > 1 && (
-          <NativeSelect aria-label="Источник" size="md" radius="xl" value={source?.key ?? ''}
-            onChange={(event) => changeCatalog(query, 1, {}, event.currentTarget.value)}>
-            {!source && <option value="" disabled>Выберите источник</option>}
-            {sources.map(({ key, name }) => <option key={key} value={key}>{name}</option>)}
-          </NativeSelect>
-        )}
       </Group>
       <div className={styles.searchRow}>
         <form role="search" aria-label="Поиск аниме" onSubmit={search} className={styles.search}>
@@ -68,13 +59,7 @@ export function CatalogPage() {
             apply={(filters) => changeCatalog(query, 1, filters)} />
         )}
       </div>
-      {source ? (
-        <CatalogResults source={source} query={query} page={page} genre={genre} year={year} changePage={(next) => changeCatalog(query, next)} />
-      ) : (
-        <Alert color="red" title="Источник не найден">
-          <Button variant="light" size="xs" onClick={() => changeCatalog(query, 1, {}, null)}>Открыть каталог {defaultSource.name}</Button>
-        </Alert>
-      )}
+      <CatalogResults source={source} query={query} page={page} genre={genre} year={year} changePage={(next) => changeCatalog(query, next)} />
     </Stack>
   );
 }
@@ -158,13 +143,19 @@ function CatalogResults({ source, query, page, genre, year, changePage }: Catalo
       )}
       {request.status === 'ready' && (
         <>
+          {request.data.incomplete && (
+            <Alert color="yellow" title="Неполная выдача">
+              Не все источники ответили. Часть результатов может отсутствовать.
+            </Alert>
+          )}
           {request.data.page > request.data.totalPages ? (
             <Alert color="gray" title="Страница не найдена">
               <Button variant="light" size="xs" onClick={() => changePage(1)}>К первой странице</Button>
             </Alert>
           ) : request.data.items.length === 0 ? (
             <Text role="status" c="dimmed">
-              {query || genre || year ? 'Ничего не найдено. Измените запрос или фильтры.' : 'Каталог пуст.'}
+              {request.data.page > 1 ? 'На этой странице нет новых тайтлов.'
+                : query || genre || year ? 'Ничего не найдено. Измените запрос или фильтры.' : 'Каталог пуст.'}
             </Text>
           ) : (
             <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }} spacing={{ base: 'sm', sm: 'md' }} verticalSpacing="lg">

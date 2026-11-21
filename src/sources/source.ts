@@ -1,3 +1,8 @@
+export interface VoiceOption {
+  source: string;
+  alias: string;
+}
+
 export interface CatalogEntry {
   alias: string;
   name: string;
@@ -11,6 +16,7 @@ export interface CatalogResult {
   items: readonly CatalogEntry[];
   page: number;
   totalPages: number;
+  incomplete?: boolean;
 }
 
 export interface CatalogFilters {
@@ -69,5 +75,6 @@ export interface AnimeSource {
   getCatalogFilters?(signal: AbortSignal): Promise<CatalogFilterOptions>;
   getSchedule?(signal: AbortSignal): Promise<readonly ScheduleEntry[]>;
   getTitle(alias: string, signal: AbortSignal): Promise<AnimeTitle | null>;
+  getVoices?(alias: string, signal: AbortSignal): Promise<readonly VoiceOption[]>;
   getRelated?(title: AnimeTitle, signal: AbortSignal): Promise<RelatedInfo>;
 }
