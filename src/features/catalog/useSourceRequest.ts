@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 
 type Result<T> = { status: 'ready'; data: T } | { status: 'error' };
 
-export function useSourceRequest<T>(load: (signal: AbortSignal) => Promise<T>): Result<T> | { status: 'loading' } {
+export function useSourceRequest<T>(load: ((signal: AbortSignal) => Promise<T>) | null): Result<T> | { status: 'loading' } {
   const [result, setResult] = useState<{ load: typeof load; state: Result<T> }>();
 
   useEffect(() => {
+    if (!load) return;
     const controller = new AbortController();
     load(controller.signal).then(
       (data) => {

@@ -1,8 +1,8 @@
 import { Alert, Badge, Group, Image, Loader, NativeSelect, SimpleGrid, Stack, Text, Title } from '@mantine/core';
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
-import { getSource } from '../../sources';
-import type { AnimeSource, AnimeTitle, Episode, Franchise, VoiceOption } from '../../sources/source';
+import { useCallback, useEffect } from 'react';
+import { Link, useHref, useLocation, useParams, useSearchParams } from 'react-router';
+import { defaultSource, getSource } from '../../sources';
+import type { AnimeSource, AnimeTitle, Episode, Franchise } from '../../sources/source';
 import { ReleaseCard } from './ReleaseCard';
 import { Player } from '../player/Player';
 import { useSourceRequest } from './useSourceRequest';
@@ -30,7 +30,9 @@ function Playback({ title, episode, sourceKey, hasSelection }: {
     return <Alert color="gray" title="Видео недоступно">Источник не предоставил видео для этого эпизода.</Alert>;
   }
   const poster = episode.preview ?? title.poster;
-  const [providerKey, originalAlias] = String(sourceKey).split(':');
+  const separator = sourceKey === defaultSource.key ? title.alias.indexOf(':') : -1;
+  const providerKey = separator < 0 ? sourceKey : title.alias.slice(0, separator);
+  const originalAlias = separator < 0 ? title.alias : title.alias.slice(separator + 1);
   const episodeKey = JSON.stringify([providerKey, originalAlias, episode.id]);
   return <Player key={episodeKey} episodeKey={episodeKey} streams={episode.streams} poster={poster} />;
 }
@@ -58,10 +60,9 @@ function Chronology({ franchise, currentAlias, routePrefix }: {
   );
 }
 
-function RelatedSections({ getRelated, title, currentAlias, routePrefix }: {
+function RelatedSections({ getRelated, title, routePrefix }: {
   getRelated: NonNullable<AnimeSource['getRelated']>;
   title: AnimeTitle;
-  currentAlias: string;
   routePrefix: string;
 }) {
   const load = useCallback((signal: AbortSignal) => getRelated(title, signal), [getRelated, title]);
@@ -90,7 +91,7 @@ function RelatedSections({ getRelated, title, currentAlias, routePrefix }: {
           <Title order={2} size="h3" id="franchise-heading" mb="sm">Франшиза (Хронология)</Title>
           <Stack gap="md">
             {franchises.map((franchise) => (
-              <Chronology key={franchise.id} franchise={franchise} currentAlias={currentAlias} routePrefix={routePrefix} />
+              <Chronology key={franchise.id} franchise={franchise} currentAlias={title.alias} routePrefix={routePrefix} />
             ))}
           </Stack>
         </section>
@@ -99,84 +100,91 @@ function RelatedSections({ getRelated, title, currentAlias, routePrefix }: {
   );
 }
 
+function useTitleRequest(source: AnimeSource, alias: string | null) {
+  const load = useCallback(async (signal: AbortSignal) => {
+    // Let StrictMode cancel its probe effect before issuing a network request.
+    await Promise.resolve();
+    return alias === null || signal.aborted ? null : source.getTitle(alias, signal);
+  }, [source, alias]);
+  return useSourceRequest(alias === null ? null : load);
+}
+
 function TitleContent({ source, alias }: { source: AnimeSource; alias: string }) {
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const href = useHref(location);
+  const combined = source.key === defaultSource.key;
+  const voice = combined ? params.get('voice') : null;
   const selectedId = params.get('episode');
-  const initialVoice = params.get('voice') ?? alias;
-  const [selectedVoice, setSelectedVoice] = useState(initialVoice);
+
+  const baseRequest = useTitleRequest(source, alias);
+  const baseTitle = baseRequest.status === 'ready' ? baseRequest.data : null;
+  const voices = combined ? baseTitle?.voices : undefined;
+  const useBaseTitle = voice === null || voice === baseTitle?.alias;
+  const alternate = !useBaseTitle && voices?.some(({ alias: option }) => option === voice) ? voice : null;
+  const voiceRequest = useTitleRequest(source, alternate);
+  const request = alternate === null ? baseRequest : voiceRequest;
+  const title = request.status === 'ready' && (useBaseTitle || request.data?.alias === alternate) ? request.data : null;
+
+  const switchFrom = location.state?.voiceEpisodeNumber;
+  const pendingNumber = voice !== null && typeof switchFrom === 'number' ? switchFrom : null;
+  const matchedIndex = title && pendingNumber !== null
+    ? title.episodes.findIndex(({ number }) => number === pendingNumber)
+    : -1;
+  const currentIndex = matchedIndex >= 0 ? matchedIndex
+    : selectedId === null ? 0 : (title?.episodes.findIndex(({ id }) => id === selectedId) ?? -1);
+  const episode = title?.episodes[currentIndex];
 
   useEffect(() => {
-    const voice = params.get('voice');
-    if (voice && voice !== selectedVoice) setSelectedVoice(voice);
-  }, [params, selectedVoice]);
-  const [pendingEpisodeNumber, setPendingEpisodeNumber] = useState<number | null>(null);
-  const [voices, setVoices] = useState<readonly VoiceOption[]>([]);
-
-  const groupLoad = useCallback((signal: AbortSignal) => source.getTitle(alias, signal), [source, alias]);
-  const groupRequest = useSourceRequest(groupLoad);
-
-  const voiceLoad = useCallback((signal: AbortSignal) => source.getTitle(selectedVoice, signal), [source, selectedVoice]);
-  const request = useSourceRequest(voiceLoad);
-
-  useEffect(() => {
-    if (groupRequest.status === 'ready' && groupRequest.data?.voices?.length) {
-      setVoices(groupRequest.data.voices);
-    }
-  }, [groupRequest]);
-
-  useEffect(() => {
-    if (request.status === 'ready' && pendingEpisodeNumber !== null) {
-      const match = request.data?.episodes.find((episode) => episode.number === pendingEpisodeNumber);
-      if (match) {
-        const next = new URLSearchParams(params);
-        next.set('episode', match.id);
-        setParams(next);
-      }
-      setPendingEpisodeNumber(null);
-    }
-  }, [request, pendingEpisodeNumber, params, setParams]);
+    // Back can change the hash before React Router commits the new location.
+    if (!title || pendingNumber === null || window.location.hash !== href) return;
+    const next = new URLSearchParams(params);
+    if (matchedIndex >= 0 && episode) next.set('episode', episode.id);
+    setParams(next, { replace: true });
+  }, [episode, href, matchedIndex, params, pendingNumber, setParams, title]);
 
   function changeVoice(nextAlias: string) {
-    if (nextAlias === selectedVoice) return;
-    const currentTitle = request.status === 'ready' ? request.data : null;
-    const currentEpisode = currentTitle && currentTitle.episodes ? (currentTitle.episodes.find((episode: Episode) => episode.id === selectedId) ?? currentTitle.episodes[0]) : undefined;
-    setPendingEpisodeNumber(currentEpisode?.number ?? null);
-    setSelectedVoice(nextAlias);
+    if (!voices?.some(({ alias: option }) => option === nextAlias) || nextAlias === (voice ?? title?.alias)) return;
     const next = new URLSearchParams(params);
     next.set('voice', nextAlias);
     next.delete('episode');
-    setParams(next);
+    setParams(next, { state: { voiceEpisodeNumber: episode?.number } });
   }
 
   if (request.status === 'loading') {
     return <Group role="status" gap="xs"><Loader size="xs" aria-hidden /> <Text>Загружаем аниме…</Text></Group>;
   }
+  if (voice !== null && !title) {
+    const next = new URLSearchParams(params);
+    if (baseTitle) next.set('voice', baseTitle.alias);
+    next.delete('episode');
+    return (
+      <Alert role="alert" color="red" title="Выбранная озвучка недоступна">
+        {baseTitle ? <Link to={`?${next}`}>Открыть доступную озвучку</Link> : 'Проверьте подключение и обновите страницу.'}
+      </Alert>
+    );
+  }
   if (request.status === 'error') {
     return <Alert role="alert" color="red" title="Не удалось загрузить аниме">Проверьте подключение и обновите страницу.</Alert>;
   }
-  if (!request.data) {
+  if (!title) {
     return <Alert color="gray" title="Аниме не найдено">Возможно, ссылка устарела.</Alert>;
   }
-
-  const title = request.data;
-  const currentIndex = selectedId === null ? 0 : title.episodes.findIndex(({ id }) => id === selectedId);
-  const episode = title.episodes[currentIndex];
-
   return (
     <Stack gap="lg">
       <Group gap="sm" align="baseline" className={styles.heading}>
         <Title order={1}>{title.name}</Title>
         {episode && <Text c="dimmed" size="lg" id="playback-heading">{episodeCaption(episode, currentIndex, title.episodes.length)}</Text>}
       </Group>
-      {voices.length > 1 && (
-        <NativeSelect aria-label="Озвучка" size="md" radius="xl" value={selectedVoice}
+      {voices && voices.length > 1 && (
+        <NativeSelect aria-label="Озвучка" size="md" radius="xl" value={voice ?? title.alias}
           data={voices.map((voice) => ({ value: voice.alias, label: voice.source }))}
           onChange={(event) => changeVoice(event.currentTarget.value)} />
       )}
       <div className={styles.theater}>
-        <Playback title={title} episode={episode} sourceKey={selectedVoice} hasSelection={selectedId !== null} />
+        <Playback title={title} episode={episode} sourceKey={source.key} hasSelection={selectedId !== null} />
         {title.episodes.length > 0 && (
-          <EpisodeNavigation key={episode?.id ?? selectedId} episodes={title.episodes} currentIndex={currentIndex} />
+          <EpisodeNavigation key={episode?.id ?? selectedId} episodes={title.episodes} currentIndex={currentIndex} voice={voice} />
         )}
       </div>
       <details className={styles.about}>
@@ -196,7 +204,6 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
         <RelatedSections
           getRelated={source.getRelated}
           title={title}
-          currentAlias={selectedVoice}
           routePrefix={`/anime/${encodeURIComponent(source.key)}`}
         />
       )}

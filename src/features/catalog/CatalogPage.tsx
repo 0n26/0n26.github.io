@@ -154,7 +154,8 @@ function CatalogResults({ source, query, page, genre, year, changePage }: Catalo
             </Alert>
           ) : request.data.items.length === 0 ? (
             <Text role="status" c="dimmed">
-              {query || genre || year ? 'Ничего не найдено. Измените запрос или фильтры.' : 'Каталог пуст.'}
+              {request.data.page > 1 ? 'На этой странице нет новых тайтлов.'
+                : query || genre || year ? 'Ничего не найдено. Измените запрос или фильтры.' : 'Каталог пуст.'}
             </Text>
           ) : (
             <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }} spacing={{ base: 'sm', sm: 'md' }} verticalSpacing="lg">

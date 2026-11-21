@@ -31,17 +31,14 @@ function normalizeName(value: string | undefined): string {
   return (value ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
 }
 
-function entryNames(entry: CatalogEntry): string[] {
-  return [entry.name, entry.alternateName].map(normalizeName).filter(Boolean);
-}
-
-function sameAnime(a: CatalogEntry, b: CatalogEntry): boolean {
-  const aNames = entryNames(a);
-  const bNames = entryNames(b);
-  if (aNames.length === 0 || bNames.length === 0) return false;
-  if (!aNames.some((name) => bNames.includes(name))) return false;
-  if (a.year && b.year && a.year !== b.year) return false;
-  return true;
+function literalKeys(entry: CatalogEntry): string[] {
+  if (entry.year === undefined) return [];
+  const name = normalizeName(entry.name);
+  const alternate = normalizeName(entry.alternateName);
+  const keys = [];
+  if (name) keys.push(`${entry.year}:${name}`);
+  if (alternate && alternate !== name) keys.push(`${entry.year}:${alternate}`);
+  return keys;
 }
 
 function makeVoiceOption(source: AnimeSource, entry: CatalogEntry): VoiceOption {
@@ -53,141 +50,154 @@ function makeVoiceOption(source: AnimeSource, entry: CatalogEntry): VoiceOption 
   };
 }
 
-function withVoices(entry: CatalogEntry, voices: readonly VoiceOption[]): CatalogEntry {
-  return { ...entry, voices };
+interface CatalogItem {
+  source: AnimeSource;
+  entry: CatalogEntry;
+  page: number;
+  order: number;
+  keys: readonly string[];
 }
 
-function clusterEntries(items: readonly { entry: CatalogEntry; source: AnimeSource; original: CatalogEntry }[]) {
-  const clusters: (typeof items[number])[][] = [];
+interface ProviderPages {
+  pages: Map<number, CatalogResult>;
+  totalPages: number;
+}
 
-
-  // Group by normalized name first.
-  const byName = new Map<string, number[]>();
-  items.forEach((item, index) => {
-    const key = entryNames(item.entry).sort().join('|');
-    const bucket = byName.get(key) ?? [];
-    bucket.push(index);
-    byName.set(key, bucket);
-  });
-
-  for (const bucket of byName.values()) {
-    if (bucket.length === 1) {
-      clusters.push([items[bucket[0]]]);
-      continue;
-    }
-
-    // Match items from different providers only, one-to-one.
-    const matched = new Set<number>();
-    const pairs: [number, number][] = [];
-    for (let i = 0; i < bucket.length; i += 1) {
-      if (matched.has(bucket[i])) continue;
-      for (let j = i + 1; j < bucket.length; j += 1) {
-        if (matched.has(bucket[j])) continue;
-        const a = items[bucket[i]];
-        const b = items[bucket[j]];
-        if (a.source.key === b.source.key) continue;
-        if (!sameAnime(a.entry, b.entry)) continue;
-        // Avoid merging if either already matched to another item of the same provider.
-        pairs.push([bucket[i], bucket[j]]);
-        matched.add(bucket[i]);
-        matched.add(bucket[j]);
-        break;
-      }
-    }
-
-    // Build clusters from matched pairs, then add unmatched items as singletons.
-    const clusterMap = new Map<number, number[]>();
-    for (const [a, b] of pairs) {
-      const root = a;
-      const group = clusterMap.get(root) ?? [a];
-      if (!group.includes(b)) group.push(b);
-      clusterMap.set(root, group);
-    }
-    for (const index of bucket) {
-      if (matched.has(index)) continue;
-      clusters.push([items[index]]);
-    }
-    for (const group of clusterMap.values()) {
-      clusters.push(group.map((index) => items[index]));
+function uniqueCatalogMatch(item: CatalogItem, byKey: ReadonlyMap<string, readonly CatalogItem[]>): CatalogItem | undefined {
+  let match: CatalogItem | undefined;
+  for (const key of item.keys) {
+    for (const candidate of byKey.get(key) ?? []) {
+      if (candidate.source.key === item.source.key || candidate === match) continue;
+      if (match) return;
+      match = candidate;
     }
   }
-
-  return clusters;
+  return match;
 }
 
-function distinctKnownYears(entries: readonly CatalogEntry[]): number[] {
-  return [...new Set(entries.map((entry) => entry.year).filter((year): year is number => typeof year === 'number'))];
-}
+async function uniqueSearchMatch(
+  source: AnimeSource, target: CatalogEntry, cached: ProviderPages | undefined, signal: AbortSignal, expected?: CatalogEntry,
+): Promise<CatalogEntry | undefined> {
+  const keys = literalKeys(target);
+  if (!keys.length) return;
 
-function canMergeCluster(entries: readonly CatalogEntry[]): boolean {
-  return distinctKnownYears(entries).length <= 1;
+  let match = expected;
+  function consider(entries: readonly CatalogEntry[]): boolean {
+    for (const entry of entries) {
+      if (entry.alias === match?.alias || !literalKeys(entry).some((key) => keys.includes(key))) continue;
+      if (match) return false;
+      match = entry;
+    }
+    return true;
+  }
+
+  if (cached) {
+    for (const [page, result] of cached.pages) {
+      if (page <= cached.totalPages && !consider(result.items)) return;
+    }
+  }
+  for (const query of new Set([target.name, target.alternateName])) {
+    if (!query) continue;
+    for (let page = 1, totalPages = 1; page <= totalPages; page += 1) {
+      signal.throwIfAborted();
+      const result = await source.getCatalog(query, page, signal);
+      if (result.incomplete || !consider(result.items)) return;
+      totalPages = result.totalPages;
+    }
+  }
+  return match;
 }
 
 export function createCombinedSource(sources: readonly AnimeSource[]): AnimeSource {
   const availableSources = [...sources];
+  let activeCatalog: { key: string; providers: Map<AnimeSource, ProviderPages> } | undefined;
 
   return {
     key: 'combined',
     name: 'Общий каталог',
 
     async getCatalog(query, page, signal, filters) {
+      signal.throwIfAborted();
       const hasFilters = Boolean(filters?.genre || filters?.year);
       const selectedSources = hasFilters
         ? availableSources.filter((source) => source.getCatalogFilters)
         : availableSources;
+      const key = JSON.stringify([query, filters?.genre, filters?.year]);
+      if (activeCatalog?.key !== key) activeCatalog = { key, providers: new Map() };
+      const { providers } = activeCatalog;
 
-      if (selectedSources.length === 0) {
-        return { items: [], page, totalPages: 1 };
-      }
+      if (selectedSources.length === 0) return { items: [], page, totalPages: 1 };
 
-      const settled = await Promise.allSettled(
-        selectedSources.map((source) => source.getCatalog(query, page, signal, filters)),
-      );
-      const successes = settled
-        .map((result, index) => (result.status === 'fulfilled' ? { source: selectedSources[index], result: result.value } : null))
-        .filter((item): item is { source: AnimeSource; result: CatalogResult } => Boolean(item));
-
+      const singleSource = selectedSources.length === 1;
+      const settled = await Promise.allSettled(selectedSources.map(async (source) => {
+        let cached = providers.get(source);
+        if (!cached) {
+          cached = { pages: new Map(), totalPages: Infinity };
+          providers.set(source, cached);
+        }
+        for (let current = singleSource ? page : 1; current <= page && current <= cached.totalPages; current += 1) {
+          if (cached.pages.has(current)) continue;
+          signal.throwIfAborted();
+          const result = await source.getCatalog(query, current, signal, hasFilters ? filters : undefined);
+          signal.throwIfAborted();
+          cached.pages.set(current, result);
+          cached.totalPages = result.totalPages;
+        }
+        return { source, ...cached };
+      }));
+      signal.throwIfAborted();
+      const successes = settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
       if (successes.length === 0) {
         const firstFailure = settled.find((result) => result.status === 'rejected');
         throw firstFailure?.status === 'rejected' ? firstFailure.reason : new Error('Combined catalog: all sources failed');
       }
 
-      const allItems = successes.flatMap(({ source, result }) =>
-        result.items.map((entry) => ({
-          entry: prefixEntry(source.key, entry),
-          source,
-          original: entry,
-        })),
-      );
-
-      const clusters = clusterEntries(allItems);
-      const items: CatalogEntry[] = [];
-      for (const cluster of clusters) {
-        const base = cluster[0].entry;
-        if (cluster.length === 1) {
-          items.push(base);
-          continue;
-        }
-
-        const clusterEntriesList = cluster.map((item) => item.entry);
-        if (!canMergeCluster(clusterEntriesList)) {
-          for (const item of cluster) items.push(item.entry);
-          continue;
-        }
-
-        const voices = cluster.map((item) => makeVoiceOption(item.source, item.original));
-        const uniqueVoices = voices.filter((voice, index, list) => list.findIndex((item) => item.sourceKey === voice.sourceKey) === index);
-        if (uniqueVoices.length <= 1) {
-          for (const item of cluster) items.push(item.entry);
-          continue;
-        }
-
-        const groupAlias = `group:${cluster.map((item) => `${item.source.key}~${item.original.alias}`).join('|')}`;
-        items.push(withVoices({ ...base, alias: groupAlias }, uniqueVoices));
+      const totalPages = Math.max(1, ...successes.map((result) => result.totalPages));
+      let incomplete = successes.length < selectedSources.length;
+      if (singleSource) {
+        const { source, pages } = successes[0];
+        const result = page <= totalPages ? pages.get(page) : undefined;
+        return {
+          items: result?.items.map((entry) => prefixEntry(source.key, entry)) ?? [],
+          page, totalPages, incomplete: incomplete || Boolean(result?.incomplete),
+        };
       }
 
-      const totalPages = Math.max(1, ...successes.map(({ result }) => result.totalPages));
-      return { items, page, totalPages, incomplete: successes.length < selectedSources.length } satisfies CatalogResult;
+      const byKey = new Map<string, CatalogItem[]>();
+      const currentItems: CatalogItem[] = [];
+      for (const source of selectedSources) {
+        const cached = providers.get(source);
+        if (!cached) continue;
+        const { pages, totalPages: limit } = cached;
+        for (let current = 1; current <= page && current <= limit; current += 1) {
+          const result = pages.get(current);
+          if (!result) continue;
+          incomplete ||= Boolean(result.incomplete);
+          for (const entry of result.items) {
+            const item = { source, entry, page: current, order: currentItems.length, keys: literalKeys(entry) };
+            if (current === page) currentItems.push(item);
+            for (const literal of item.keys) {
+              const bucket = byKey.get(literal);
+              if (bucket) bucket.push(item);
+              else byKey.set(literal, [item]);
+            }
+          }
+        }
+      }
+
+      const items: CatalogEntry[] = [];
+      for (const item of currentItems) {
+        const { source, entry } = item;
+        const match = uniqueCatalogMatch(item, byKey);
+        if (!match || uniqueCatalogMatch(match, byKey) !== item) {
+          items.push(prefixEntry(source.key, entry));
+        } else if (match.page === page && item.order < match.order) {
+          const voices = [makeVoiceOption(source, entry), makeVoiceOption(match.source, match.entry)];
+          const alias = `group:${source.key}~${entry.alias}|${match.source.key}~${match.entry.alias}`;
+          items.push({ ...entry, alias, voices });
+        }
+      }
+      return { items, page, totalPages, incomplete } satisfies CatalogResult;
     },
 
     async getCatalogFilters(signal) {
@@ -220,137 +230,84 @@ export function createCombinedSource(sources: readonly AnimeSource[]): AnimeSour
     },
 
     async getTitle(alias, signal) {
+      signal.throwIfAborted();
       // Group alias: fetch all variants listed in it.
       if (alias.startsWith('group:')) {
-        const variants = alias
-          .slice('group:'.length)
-          .split('|')
-          .map((part) => {
-            const separator = part.indexOf('~');
-            if (separator <= 0) return undefined;
-            const sourceKey = part.slice(0, separator);
-            const originalAlias = part.slice(separator + 1);
-            const source = availableSources.find((item) => item.key === sourceKey);
-            if (!source) return undefined;
-            return { source, alias: prefixed(sourceKey, originalAlias), originalAlias };
-          })
-          .filter((item): item is { source: AnimeSource; alias: string; originalAlias: string } => Boolean(item));
-
-        if (variants.length === 0) return null;
-
-        const titles = await Promise.allSettled(
-          variants.map(async ({ source, alias: variantAlias, originalAlias }) => {
-            const title = await source.getTitle(originalAlias, signal);
-            return title ? { source, title, alias: variantAlias } : null;
-          }),
-        );
-        const availableTitles = titles
-          .filter((result): result is PromiseFulfilledResult<{ source: AnimeSource; title: AnimeTitle; alias: string } | null> => result.status === 'fulfilled')
-          .map((result) => result.value)
-          .filter((item): item is { source: AnimeSource; title: AnimeTitle; alias: string } => Boolean(item));
-
-        if (availableTitles.length === 0) {
-          const firstFailure = titles.find((result) => result.status === 'rejected');
-          if (firstFailure?.status === 'rejected') throw firstFailure.reason;
-          return null;
-        }
-
-        const voices = availableTitles.map(({ source, title, alias: variantAlias }) => ({
-          source: source.name,
-          sourceKey: source.key,
-          alias: variantAlias,
-          name: title.name,
+        const titles = await Promise.allSettled(alias.slice('group:'.length).split('|').map(async (part) => {
+          const separator = part.indexOf('~');
+          if (separator <= 0) return null;
+          const sourceKey = part.slice(0, separator);
+          const source = availableSources.find((item) => item.key === sourceKey);
+          if (!source) return null;
+          const title = await source.getTitle(part.slice(separator + 1), signal);
+          return title ? { source, title } : null;
         }));
-
-        const first = availableTitles[0];
-        return {
-          ...first.title,
-          alias: first.alias,
-          voices,
-        };
+        signal.throwIfAborted();
+        const voices: VoiceOption[] = [];
+        let first: AnimeTitle | undefined;
+        for (const result of titles) {
+          if (result.status !== 'fulfilled' || !result.value) continue;
+          const { source, title } = result.value;
+          first ??= title;
+          voices.push(makeVoiceOption(source, title));
+        }
+        if (first) return { ...first, alias: voices[0].alias, voices };
+        const firstFailure = titles.find((result) => result.status === 'rejected');
+        if (firstFailure?.status === 'rejected') throw firstFailure.reason;
+        return null;
       }
 
-      // Single source alias.
-      const resolved = resolveSource(availableSources, alias);
-      let baseTitle: AnimeTitle | null = null;
-      let baseSource: AnimeSource | undefined;
-      let baseAlias = alias;
-
+      let resolved = resolveSource(availableSources, alias);
+      let title: AnimeTitle | null = null;
       if (resolved) {
-        baseTitle = await resolved.source.getTitle(resolved.alias, signal);
-        baseSource = resolved.source;
-        baseAlias = prefixed(resolved.source.key, resolved.alias);
+        title = await resolved.source.getTitle(resolved.alias, signal);
       } else {
         for (const source of availableSources) {
           try {
-            baseTitle = await source.getTitle(alias, signal);
-            if (baseTitle) {
-              baseSource = source;
-              baseAlias = prefixed(source.key, baseTitle.alias);
+            title = await source.getTitle(alias, signal);
+            if (title) {
+              resolved = { source, alias: title.alias };
               break;
             }
           } catch {
+            signal.throwIfAborted();
             // Try next source.
           }
         }
       }
+      signal.throwIfAborted();
+      if (!title || !resolved) return null;
 
-      if (!baseTitle || !baseSource) return null;
-
-      // Search other sources for voice options without blocking the whole catalog (title page only).
-      const voices = [makeVoiceOption(baseSource, baseTitle)];
-      await Promise.allSettled(
-        availableSources
+      const baseTitle = title;
+      const baseSource = resolved.source;
+      const baseVoice = makeVoiceOption(baseSource, baseTitle);
+      const voices = [baseVoice];
+      const cached = activeCatalog?.providers;
+      if (baseTitle.year !== undefined) {
+        const variants = await Promise.allSettled(availableSources
           .filter((source) => source.key !== baseSource.key)
           .map(async (source) => {
-            try {
-              const result = await source.getCatalog(baseTitle!.name, 1, signal);
-              const match = result.items.find((candidate) => sameAnime(candidate, baseTitle!));
-              if (match) {
-                const voice = makeVoiceOption(source, match);
-                if (!voices.some((existing) => existing.sourceKey === voice.sourceKey)) voices.push(voice);
-              }
-            } catch {
-              // Ignore.
-            }
-          }),
-      );
-
-      return {
-        ...baseTitle,
-        alias: baseAlias,
-        voices: voices.length > 1 ? voices : undefined,
-      };
-    },
-
-    async getRelated(title, signal) {
-      // Resolve underlying source/alias/id for group titles.
-      let source: AnimeSource | undefined;
-      let originalAlias = title.alias;
-      void originalAlias;
-      let baseTitle = title;
-
-      if (title.alias.startsWith('group:')) {
-        const firstPart = title.alias.slice('group:'.length).split('|')[0];
-        const [sourceKey, original] = firstPart.split('~');
-        source = availableSources.find((item) => item.key === sourceKey);
-        if (source && original) {
-          originalAlias = original;
-          baseTitle = { ...title, alias: original };
-        }
-      } else {
-        const resolved = resolveSource(availableSources, title.alias);
-        if (resolved) {
-          source = resolved.source;
-          originalAlias = resolved.alias;
-          baseTitle = { ...title, alias: resolved.alias };
+            const match = await uniqueSearchMatch(source, baseTitle, cached?.get(source), signal);
+            if (!match) return;
+            // The other title must also resolve uniquely back to this one.
+            const reverse = await uniqueSearchMatch(baseSource, match, cached?.get(baseSource), signal, baseTitle);
+            if (reverse?.alias === baseTitle.alias) return makeVoiceOption(source, match);
+          }));
+        signal.throwIfAborted();
+        for (const variant of variants) {
+          if (variant.status === 'fulfilled' && variant.value) voices.push(variant.value);
         }
       }
 
-      if (!source) source = availableSources.find((item) => item.getRelated);
+      return { ...baseTitle, alias: baseVoice.alias, voices: voices.length > 1 ? voices : undefined };
+    },
+
+    async getRelated(title, signal) {
+      const resolved = resolveSource(availableSources, title.alias);
+      const source = resolved?.source ?? availableSources.find((item) => item.getRelated);
       if (!source?.getRelated) return { similar: [], franchises: [] };
 
-      const info = await source.getRelated(baseTitle, signal);
+      const info = await source.getRelated(resolved ? { ...title, alias: resolved.alias } : title, signal);
 
       return {
         similar: info.similar.map((entry) => prefixEntry(source.key, entry)),
