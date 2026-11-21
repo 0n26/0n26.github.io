@@ -1,5 +1,5 @@
 import type { AnimeSource, CatalogEntry, Episode } from './source';
-import { positiveInteger, record, text } from './values';
+import { positiveInteger, record, text } from './values.ts';
 
 const API = 'https://api.animetop.info/v1';
 const PAGE_SIZE = 24;

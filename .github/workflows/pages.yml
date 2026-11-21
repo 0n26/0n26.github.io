@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * *'
 permissions:
   contents: read
 concurrency:
@@ -10,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   release:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -36,6 +38,7 @@ jobs:
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   sync-changelog:
     needs: release
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     environment: release-bump
     steps:
@@ -94,11 +97,12 @@ jobs:
           fi
   build:
     needs: release
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || needs.release.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ needs.release.outputs.sha }}
+          ref: ${{ needs.release.outputs.sha || 'main' }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -108,10 +112,17 @@ jobs:
       - name: Apply version and changelog from the release tag
         env:
           RELEASE_TAG: ${{ needs.release.outputs.tag }}
-        run: node scripts/release.mjs materialize "$RELEASE_TAG"
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == schedule ]]; then
+            RELEASE_TAG=$(gh release view --json tagName --jq '.tagName')
+          fi
+          node scripts/release.mjs materialize "$RELEASE_TAG"
       - run: npm ci
       - name: Build the site
         run: npm run build
+      - name: Prepare the catalog index
+        run: node scripts/catalog-index.mjs dist/catalog-index.json https://0n26.github.io/catalog-index.json
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: dist

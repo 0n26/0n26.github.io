@@ -1,13 +1,14 @@
 import { createAniLiberty } from './aniliberty';
 import { createAnimeVost } from './animevost';
 import { createCombinedSource } from './combined';
+import { loadCatalogIndex } from './catalogIndex';
 import type { AnimeSource } from './source';
 
 const registeredSources: readonly AnimeSource[] = [createAniLiberty(), createAnimeVost()];
 
 export const sources: readonly AnimeSource[] = registeredSources;
 
-export const defaultSource = createCombinedSource(registeredSources);
+export const defaultSource = createCombinedSource(registeredSources, loadCatalogIndex);
 
 export { createCombinedSource } from './combined';
 

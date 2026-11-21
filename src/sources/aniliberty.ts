@@ -1,5 +1,5 @@
 import type { AnimeSource, AnimeTitle, CatalogEntry, Episode, Franchise, ScheduleEntry } from './source';
-import { positiveInteger, record, text } from './values';
+import { positiveInteger, record, text } from './values.ts';
 
 const ORIGIN = 'https://anilibria.top';
 const API = `${ORIGIN}/api/v1/anime`;

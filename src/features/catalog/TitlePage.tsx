@@ -109,6 +109,8 @@ function useTitleRequest(source: AnimeSource, alias: string | null) {
   return useSourceRequest(alias === null ? null : load);
 }
 
+const qualifiedAlias = /^(?!group:)[^:]+:.+$/;
+
 function TitleContent({ source, alias }: { source: AnimeSource; alias: string }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
@@ -117,14 +119,17 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
   const voice = combined ? params.get('voice') : null;
   const selectedId = params.get('episode');
 
-  const baseRequest = useTitleRequest(source, alias);
-  const baseTitle = baseRequest.status === 'ready' ? baseRequest.data : null;
-  const voices = combined ? baseTitle?.voices : undefined;
-  const useBaseTitle = voice === null || voice === baseTitle?.alias;
-  const alternate = !useBaseTitle && voices?.some(({ alias: option }) => option === voice) ? voice : null;
-  const voiceRequest = useTitleRequest(source, alternate);
-  const request = alternate === null ? baseRequest : voiceRequest;
-  const title = request.status === 'ready' && (useBaseTitle || request.data?.alias === alternate) ? request.data : null;
+  const locator = voice === null || qualifiedAlias.test(voice) ? voice ?? alias : null;
+  const request = useTitleRequest(source, locator);
+  const title = request.status === 'ready' ? request.data : null;
+  const loadVoices = useCallback(async (signal: AbortSignal) => {
+    await Promise.resolve();
+    return signal.aborted ? [] : (source.getVoices?.(alias, signal) ?? []);
+  }, [source, alias]);
+  const voicesRequest = useSourceRequest(combined ? loadVoices : null);
+  const indexedVoices = voicesRequest.status === 'ready' ? voicesRequest.data : undefined;
+  const voices = title && indexedVoices && indexedVoices.length > 1
+    && indexedVoices.some((option) => option.alias === title.alias) ? indexedVoices : undefined;
 
   const switchFrom = location.state?.voiceEpisodeNumber;
   const pendingNumber = voice !== null && typeof switchFrom === 'number' ? switchFrom : null;
@@ -144,31 +149,34 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
   }, [episode, href, matchedIndex, params, pendingNumber, setParams, title]);
 
   function changeVoice(nextAlias: string) {
-    if (!voices?.some(({ alias: option }) => option === nextAlias) || nextAlias === (voice ?? title?.alias)) return;
+    if (nextAlias === title?.alias || !voices?.some(({ alias: option }) => option === nextAlias)) return;
     const next = new URLSearchParams(params);
     next.set('voice', nextAlias);
     next.delete('episode');
     setParams(next, { state: { voiceEpisodeNumber: episode?.number } });
   }
 
-  if (request.status === 'loading') {
+  if (locator !== null && request.status === 'loading') {
     return <Group role="status" gap="xs"><Loader size="xs" aria-hidden /> <Text>Загружаем аниме…</Text></Group>;
   }
-  if (voice !== null && !title) {
-    const next = new URLSearchParams(params);
-    if (baseTitle) next.set('voice', baseTitle.alias);
-    next.delete('episode');
-    return (
-      <Alert role="alert" color="red" title="Выбранная озвучка недоступна">
-        {baseTitle ? <Link to={`?${next}`}>Открыть доступную озвучку</Link> : 'Проверьте подключение и обновите страницу.'}
-      </Alert>
-    );
-  }
-  if (request.status === 'error') {
-    return <Alert role="alert" color="red" title="Не удалось загрузить аниме">Проверьте подключение и обновите страницу.</Alert>;
-  }
   if (!title) {
-    return <Alert color="gray" title="Аниме не найдено">Возможно, ссылка устарела.</Alert>;
+    const [base, alternate] = indexedVoices ?? [];
+    const indexedRecovery = voice === alternate?.alias ? base : voice === null || voice === base?.alias ? alternate : undefined;
+    const legacyFallback = voice !== null && locator !== null && voice !== alias && qualifiedAlias.test(alias)
+      && voicesRequest.status !== 'loading' && !alternate;
+    const recoveryAlias = indexedRecovery?.alias ?? (legacyFallback ? alias : undefined);
+    const next = new URLSearchParams(params);
+    next.delete('episode');
+    if (recoveryAlias) next.set('voice', recoveryAlias);
+    const recovery = recoveryAlias ? <Link to={`?${next}`}>Открыть доступную озвучку</Link> : null;
+    if (voice !== null || request.status === 'error') {
+      return (
+        <Alert role="alert" color="red" title={voice !== null ? 'Выбранная озвучка недоступна' : 'Не удалось загрузить аниме'}>
+          {recovery ?? 'Проверьте подключение и обновите страницу.'}
+        </Alert>
+      );
+    }
+    return <Alert color="gray" title="Аниме не найдено">{recovery ?? 'Возможно, ссылка устарела.'}</Alert>;
   }
   return (
     <Stack gap="lg">
@@ -176,8 +184,8 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
         <Title order={1}>{title.name}</Title>
         {episode && <Text c="dimmed" size="lg" id="playback-heading">{episodeCaption(episode, currentIndex, title.episodes.length)}</Text>}
       </Group>
-      {voices && voices.length > 1 && (
-        <NativeSelect aria-label="Озвучка" size="md" radius="xl" value={voice ?? title.alias}
+      {voices && (
+        <NativeSelect aria-label="Озвучка" size="md" radius="xl" value={title.alias}
           data={voices.map((voice) => ({ value: voice.alias, label: voice.source }))}
           onChange={(event) => changeVoice(event.currentTarget.value)} />
       )}
