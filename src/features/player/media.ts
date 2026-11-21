@@ -14,6 +14,25 @@ export function mediaDuration(video: Pick<HTMLVideoElement, 'duration'>) {
   return Number.isFinite(video.duration) ? video.duration : 0;
 }
 
+export function readPosition(key: string) {
+  try {
+    const value = Number(localStorage.getItem(`player:position:${key}`));
+    return Number.isSafeInteger(value) && value > 0 ? value : 0;
+  } catch {
+    return 0; // Storage can be disabled for the site.
+  }
+}
+
+export function savePosition(key: string, seconds: number) {
+  try {
+    const storageKey = `player:position:${key}`;
+    if (seconds > 0) localStorage.setItem(storageKey, String(seconds));
+    else localStorage.removeItem(storageKey);
+  } catch {
+    // Playback does not depend on storage access or quota.
+  }
+}
+
 export async function attachHls(
   video: HTMLVideoElement,
   url: string,

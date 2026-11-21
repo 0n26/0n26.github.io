@@ -14,7 +14,9 @@ const restrictionMessages = {
   unknown: 'Источник не подтвердил доступность просмотра.',
 };
 
-function Playback({ title, episode, hasSelection }: { title: AnimeTitle; episode?: Episode; hasSelection: boolean }) {
+function Playback({ title, episode, sourceKey, hasSelection }: {
+  title: AnimeTitle; episode?: Episode; sourceKey: string; hasSelection: boolean;
+}) {
   if (title.restriction) {
     return <Alert color="yellow" title="Просмотр недоступен">{restrictionMessages[title.restriction]}</Alert>;
   }
@@ -27,7 +29,8 @@ function Playback({ title, episode, hasSelection }: { title: AnimeTitle; episode
     return <Alert color="gray" title="Видео недоступно">Источник не предоставил видео для этого эпизода.</Alert>;
   }
   const poster = episode.preview ?? title.poster;
-  return <Player key={episode.id} streams={episode.streams} {...(poster ? { poster } : {})} />;
+  const episodeKey = JSON.stringify([sourceKey, title.alias, episode.id]);
+  return <Player key={episodeKey} episodeKey={episodeKey} streams={episode.streams} poster={poster} />;
 }
 
 function TitleContent({ source, alias }: { source: AnimeSource; alias: string }) {
@@ -57,7 +60,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
         {episode && <Text c="dimmed" size="lg" id="playback-heading">{episodeCaption(episode, currentIndex, title.episodes.length)}</Text>}
       </Group>
       <div className={styles.theater}>
-        <Playback title={title} episode={episode} hasSelection={selectedId !== null} />
+        <Playback title={title} episode={episode} sourceKey={source.key} hasSelection={selectedId !== null} />
         {title.episodes.length > 0 && (
           <EpisodeNavigation key={episode?.id ?? selectedId} episodes={title.episodes} currentIndex={currentIndex} />
         )}
