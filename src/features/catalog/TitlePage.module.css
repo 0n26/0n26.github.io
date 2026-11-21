@@ -46,45 +46,6 @@
   flex: none;
 }
 
-.card {
-  min-width: 0;
-  color: var(--mantine-color-text);
-  text-decoration: none;
-  border-radius: var(--mantine-radius-md);
-}
-
-.card:hover .cardTitle {
-  color: var(--mantine-primary-color-light-color);
-}
-
-.card:focus-visible {
-  outline: 2px solid var(--mantine-primary-color-filled);
-  outline-offset: 2px;
-}
-
-.poster {
-  overflow: hidden;
-  border-radius: var(--mantine-radius-md);
-  background: var(--mantine-color-default-hover);
-}
-
-.cardTitle {
-  margin-top: var(--mantine-spacing-xs);
-  line-height: 1.35;
-  min-height: 2.7em;
-  overflow-wrap: anywhere;
-}
-
-.placeholder {
-  display: grid;
-  place-items: center;
-  padding: var(--mantine-spacing-xs);
-  text-align: center;
-  color: var(--mantine-color-dimmed);
-  background-color: var(--mantine-color-default-hover);
-  font-size: var(--mantine-font-size-xs);
-}
-
 .chronology {
   display: grid;
   gap: 0.35rem;

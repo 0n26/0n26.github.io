@@ -1,8 +1,9 @@
-import { Alert, AspectRatio, Badge, Group, Image, Loader, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { Alert, Badge, Group, Image, Loader, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useCallback } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { getSource } from '../../sources';
-import type { AnimeSource, AnimeTitle, CatalogEntry, Episode, Franchise } from '../../sources/source';
+import type { AnimeSource, AnimeTitle, Episode, Franchise } from '../../sources/source';
+import { ReleaseCard } from './ReleaseCard';
 import { Player } from '../player/Player';
 import { useSourceRequest } from './useSourceRequest';
 import { EpisodeNavigation, episodeCaption } from './EpisodeNavigation';
@@ -33,20 +34,6 @@ function Playback({ title, episode, sourceKey, hasSelection }: {
   return <Player key={episodeKey} episodeKey={episodeKey} streams={episode.streams} poster={poster} />;
 }
 
-function RelatedCard({ routePrefix, entry }: { routePrefix: string; entry: CatalogEntry }) {
-  return (
-    <Link to={`${routePrefix}/${encodeURIComponent(entry.alias)}`} className={styles.card}>
-      <AspectRatio ratio={2 / 3} className={styles.poster}>
-        {entry.poster
-          ? <Image src={entry.poster} alt="" loading="lazy" decoding="async" />
-          : <div className={styles.placeholder}>Нет постера</div>}
-      </AspectRatio>
-      <Text fw={650} lineClamp={2} className={styles.cardTitle}>{entry.name}</Text>
-      {entry.year && <Text size="sm" c="dimmed">{entry.year}</Text>}
-    </Link>
-  );
-}
-
 function Chronology({ franchise, currentAlias, routePrefix }: {
   franchise: Franchise;
   currentAlias: string;
@@ -70,13 +57,13 @@ function Chronology({ franchise, currentAlias, routePrefix }: {
   );
 }
 
-function RelatedSections({ getRelated, alias, currentAlias, routePrefix }: {
+function RelatedSections({ getRelated, title, currentAlias, routePrefix }: {
   getRelated: NonNullable<AnimeSource['getRelated']>;
-  alias: string;
+  title: AnimeTitle;
   currentAlias: string;
   routePrefix: string;
 }) {
-  const load = useCallback((signal: AbortSignal) => getRelated(alias, signal), [getRelated, alias]);
+  const load = useCallback((signal: AbortSignal) => getRelated(title, signal), [getRelated, title]);
   const request = useSourceRequest(load);
 
   if (request.status === 'loading') {
@@ -93,7 +80,7 @@ function RelatedSections({ getRelated, alias, currentAlias, routePrefix }: {
         <section aria-labelledby="similar-heading">
           <Title order={2} size="h3" id="similar-heading" mb="sm">Похожее</Title>
           <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 6 }} spacing="md">
-            {similar.map((entry) => <RelatedCard key={entry.alias} routePrefix={routePrefix} entry={entry} />)}
+            {similar.map((entry) => <ReleaseCard key={entry.alias} to={`${routePrefix}/${encodeURIComponent(entry.alias)}`} entry={entry} />)}
           </SimpleGrid>
         </section>
       )}
@@ -159,7 +146,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
       {source.getRelated && (
         <RelatedSections
           getRelated={source.getRelated}
-          alias={alias}
+          title={title}
           currentAlias={title.alias}
           routePrefix={`/anime/${encodeURIComponent(source.key)}`}
         />

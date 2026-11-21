@@ -88,7 +88,7 @@ it('loads similar releases and franchise chronology without duplicates', async (
     throw new Error(`Unexpected request: ${url}`);
   });
 
-  await expect(source.getRelated!('test-release', signal)).resolves.toMatchObject({
+  await expect(source.getRelated!({ alias: 'test-release', id: 42, name: 'Тест', episodes: [] } as any, signal)).resolves.toMatchObject({
     similar: [{ alias: 'similar-one', name: 'Похожий', year: 2021 }],
     franchises: [{
       id: 'franchise-1',

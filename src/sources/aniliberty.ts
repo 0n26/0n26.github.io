@@ -50,6 +50,7 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
     alternateName: alternateName === name ? undefined : alternateName,
     poster: imageUrl(release.poster),
     year: positiveInteger(release.year) ? release.year : undefined,
+    id: positiveInteger(release.id) ? release.id : undefined,
   };
 }
 
@@ -212,28 +213,36 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
       };
     },
 
-    async getRelated(alias, signal) {
+    async getRelated(title, signal) {
+      const alias = title.alias;
       if (!ALIAS.test(alias)) return { similar: [], franchises: [] };
-      const release = record(await readJson(await fetcher(new URL(`${API}/releases/${alias}`), { signal, credentials: 'omit' })));
-      const id = positiveInteger(release?.id) ? release.id : undefined;
+      const id = positiveInteger(title.id) ? title.id : undefined;
       if (!id) return { similar: [], franchises: [] };
 
-      const [similarItems, franchiseItems] = await Promise.all([
-        readList(await fetcher(`${API}/releases/recommended?release_id=${id}&limit=6`, { signal, credentials: 'omit' })),
-        readList(await fetcher(`${API}/franchises/release/${id}`, { signal, credentials: 'omit' })),
+      const [similarResult, franchiseResult] = await Promise.allSettled([
+        fetcher(`${API}/releases/recommended?release_id=${id}&limit=6`, { signal, credentials: 'omit' }).then(readList),
+        fetcher(`${API}/franchises/release/${id}`, { signal, credentials: 'omit' }).then(readList),
       ]);
 
       const similar = new Map<string, CatalogEntry>();
-      for (const item of similarItems) {
-        const raw = record(item);
-        const entry = raw && catalogEntry(raw);
-        if (entry && entry.alias !== alias && !similar.has(entry.alias)) similar.set(entry.alias, entry);
+      if (similarResult.status === 'fulfilled') {
+        for (const item of similarResult.value) {
+          const raw = record(item);
+          const entry = raw && catalogEntry(raw);
+          if (entry && entry.alias !== alias && !similar.has(entry.alias)) similar.set(entry.alias, entry);
+        }
       }
 
       const franchises = new Map<string, Franchise>();
-      for (const item of franchiseItems) {
-        const franchise = franchiseFrom(item);
-        if (franchise) franchises.set(franchise.id, franchise);
+      if (franchiseResult.status === 'fulfilled') {
+        for (const item of franchiseResult.value) {
+          const franchise = franchiseFrom(item);
+          if (franchise) franchises.set(franchise.id, franchise);
+        }
+      }
+
+      if (similarResult.status === 'rejected' && franchiseResult.status === 'rejected') {
+        throw similarResult.reason;
       }
 
       return { similar: [...similar.values()].slice(0, 6), franchises: [...franchises.values()] };

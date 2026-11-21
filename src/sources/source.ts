@@ -4,6 +4,7 @@ export interface CatalogEntry {
   alternateName?: string;
   poster?: string;
   year?: number;
+  id?: number;
 }
 
 export interface CatalogResult {
@@ -68,5 +69,5 @@ export interface AnimeSource {
   getCatalogFilters?(signal: AbortSignal): Promise<CatalogFilterOptions>;
   getSchedule?(signal: AbortSignal): Promise<readonly ScheduleEntry[]>;
   getTitle(alias: string, signal: AbortSignal): Promise<AnimeTitle | null>;
-  getRelated?(alias: string, signal: AbortSignal): Promise<RelatedInfo>;
+  getRelated?(title: AnimeTitle, signal: AbortSignal): Promise<RelatedInfo>;
 }
