@@ -136,6 +136,8 @@ it('normalizes title metadata for the about section', async () => {
     alias: 'meta-release',
     name: { main: 'Метаданные' },
     year: 2026,
+    age_rating: { label: '16+', description: 'Для людей, достигших возраста шестнадцати лет (16+)' },
+    is_ongoing: false,
     type: { value: 'TV', description: 'ТВ' },
     season: { value: 'autumn', description: 'Осень' },
     genres: [
@@ -152,6 +154,8 @@ it('normalizes title metadata for the about section', async () => {
   }));
 
   await expect(source.getTitle('meta-release', new AbortController().signal)).resolves.toMatchObject({
+    ageRating: '16+',
+    publishStatus: 'Завершён',
     type: 'ТВ',
     season: 'Осень',
     genres: ['Исторический', 'Романтика'],
@@ -165,6 +169,9 @@ it('maps raw metadata values and drops invalid ones', async () => {
   const source = createAniLiberty(async () => Response.json({
     alias: 'meta-release',
     name: { main: 'Метаданные' },
+    age_rating: 'constructor',
+    publish_status: { value: 'UNKNOWN' },
+    is_ongoing: true,
     type: { value: 'movie' },
     season: 'summer',
     genres: 'not a list',
@@ -173,12 +180,26 @@ it('maps raw metadata values and drops invalid ones', async () => {
   }));
 
   await expect(source.getTitle('meta-release', new AbortController().signal)).resolves.toMatchObject({
+    ageRating: undefined,
+    publishStatus: 'Онгоинг',
     type: 'Фильм',
     season: 'Лето',
     genres: undefined,
     episodesTotal: undefined,
     episodeDurationMinutes: undefined,
   });
+});
+
+it.each([
+  [{ age_rating: { value: 'R0_PLUS' }, publish_status: { value: 'IS_NOT_ONGOING' } }, '0+', 'Завершён'],
+  [{ age_rating: 'R18_PLUS', publish_status: 'IS_ONGOING' }, '18+', 'Онгоинг'],
+  [{ age_rating: 18, publish_status: 'constructor', is_ongoing: 'false' }, undefined, undefined],
+] as const)('normalizes age and status codes without showing unknown values (%j)', async (fields, ageRating, publishStatus) => {
+  const source = createAniLiberty(async () => Response.json({
+    alias: 'meta-release', name: { main: 'Метаданные' }, ...fields,
+  }));
+
+  await expect(source.getTitle('meta-release', new AbortController().signal)).resolves.toMatchObject({ ageRating, publishStatus });
 });
 
 it('keeps unknown metadata codes as text even when they match inherited properties', async () => {

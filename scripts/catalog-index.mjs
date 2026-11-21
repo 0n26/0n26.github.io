@@ -113,11 +113,15 @@ async function sweep(provider, fetcher, signal) {
     if (shortPage && !(await provider.atEnd?.(rawUrl, entries.length + rawCount, total, fetcher, signal))) {
       throw new Error(`${label}: unexpectedly short page`);
     }
-    for (const { alias, name, alternateName, searchName, year, poster, id } of result.items) {
+    for (const { alias, name, alternateName, searchName, year, poster, id,
+      ageRating, publishStatus, type, season, genres, episodesTotal, episodeDurationMinutes } of result.items) {
       if (aliases.has(alias) || (id !== undefined && ids.has(id))) throw new Error(`${label}: duplicate release`);
       aliases.add(alias);
       if (id !== undefined) ids.add(id);
-      entries.push({ alias: `${source.key}:${alias}`, name, alternateName, searchName, year, poster });
+      entries.push({
+        alias: `${source.key}:${alias}`, name, alternateName, searchName, year, poster,
+        ageRating, publishStatus, type, season, genres, episodesTotal, episodeDurationMinutes,
+      });
     }
     if (shortPage) break;
   }

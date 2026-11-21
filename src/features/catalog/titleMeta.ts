@@ -1,4 +1,5 @@
 import type { AnimeTitle } from '../../sources/source';
+import { positiveInteger } from '../../sources/values';
 
 export interface TitleMetaRow {
   label: string;
@@ -35,14 +36,18 @@ export function titleMetaRows(title: AnimeTitle): readonly TitleMetaRow[] {
   const add = (label: string, value: string | number | undefined) => {
     if (value !== undefined && value !== '') rows.push({ label, value: String(value) });
   };
+  const episodesTotal = positiveInteger(title.episodesTotal) ? title.episodesTotal : 0;
+  const duration = positiveInteger(title.episodeDurationMinutes) ? title.episodeDurationMinutes : 0;
 
+  add('Возраст', title.ageRating);
+  add('Статус', title.publishStatus);
   add('Тип', title.type);
   add('Сезон', title.season);
   if (title.genres?.length) add('Жанры', title.genres.join(' • '));
-  add('Год выхода', title.year);
-  if (title.episodesTotal) add('Всего эпизодов', episodeCountText(title.episodesTotal));
-  if (title.episodesTotal && title.episodeDurationMinutes) {
-    add('Общее время просмотра', watchTimeText(title.episodesTotal * title.episodeDurationMinutes));
-  }
+  if (positiveInteger(title.year)) add('Год выхода', title.year);
+  if (duration) add('Длительность', `~ ${duration} мин`);
+  if (episodesTotal) add('Всего эпизодов', episodeCountText(episodesTotal));
+  const total = episodesTotal * duration;
+  if (positiveInteger(total)) add('Общее время просмотра', watchTimeText(total));
   return rows;
 }
