@@ -8,6 +8,11 @@
   color: #faf7fc;
 }
 
+.player:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 3px;
+}
+
 .stage {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -24,6 +29,10 @@
   object-fit: contain;
 }
 
+.video {
+  cursor: pointer;
+}
+
 .poster,
 .canvas {
   pointer-events: none;
@@ -38,6 +47,16 @@
 }
 
 .error {
+  background: #100d15ed;
+}
+
+.feedback {
+  color: white;
+  pointer-events: none;
+}
+
+.error,
+.feedback {
   position: absolute;
   inset: 0;
   display: flex;
@@ -46,22 +65,40 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem;
-  background: #100d15dd;
   text-align: center;
+}
+
+.feedback > :last-child {
+  padding: 0.25rem 0.6rem;
+  border-radius: 1rem;
+  background: #111015e6;
 }
 
 .controls {
   position: relative;
-  padding: 0.25rem 0.75rem 0.5rem;
+  padding: 0 0.5rem 0.25rem;
 }
 
-.toolbar svg {
-  font-size: 1.2rem;
+.control:not(:disabled) {
+  color: inherit;
+}
+
+.control svg {
+  font-size: 1.35rem;
+}
+
+.toolbar {
+  row-gap: 0;
 }
 
 .seek {
   flex: 1;
   min-width: 0;
+}
+
+.seek,
+.seekTarget {
+  min-height: 2rem;
 }
 
 .clock {
@@ -70,27 +107,50 @@
 }
 
 .volume {
-  width: clamp(2.5rem, 11cqi, 5.5rem);
+  display: none;
+  width: clamp(3.75rem, 12cqi, 6rem);
 }
 
-.quality {
+.settings {
   margin-inline-start: auto;
 }
 
-/* Keep touch controls off the picture instead of relying on hover to reveal them. */
-@container (min-width: 34rem) {
-  .stage,
-  .controls {
-    grid-area: 1 / 1;
-  }
+.settingsPanel {
+  max-height: min(15rem, calc(56.25cqi + 1.5rem), 65dvh);
+  padding: 0.5rem 0.75rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
 
-  .controls {
-    align-self: end;
-    padding: 1.25rem 1rem 0.5rem;
-    background: linear-gradient(transparent, #0a090de6 42%);
-  }
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
 
+@container (min-width: 27rem) {
   @media (hover: hover) and (pointer: fine) {
+    .volume {
+      display: flex;
+    }
+  }
+}
+
+/* Only pointer-driven players overlay their controls on the picture. */
+@container (min-width: 34rem) {
+  @media (hover: hover) and (pointer: fine) {
+    .stage,
+    .controls {
+      grid-area: 1 / 1;
+    }
+
+    .controls {
+      align-self: end;
+      padding: 0.75rem 1rem 0.25rem;
+      background: linear-gradient(transparent, #0a090de6 42%);
+    }
+
     .player[data-playing]:not(:hover):not(:focus-within) .controls {
       opacity: 0;
       pointer-events: none;
@@ -109,4 +169,13 @@
   height: 100%;
   min-height: 0;
   aspect-ratio: auto;
+}
+
+.player:fullscreen .stage,
+.player:fullscreen .controls {
+  grid-area: auto;
+}
+
+.player:fullscreen .controls {
+  padding: 0 1rem 0.25rem;
 }
