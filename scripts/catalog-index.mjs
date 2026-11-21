@@ -2,7 +2,7 @@ import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { createAniLiberty } from '../src/sources/aniliberty.ts';
 import { createAnimeVost } from '../src/sources/animevost.ts';
-import { parseCatalogIndex } from '../src/sources/catalogIndex.ts';
+import { catalogIndexVersion, parseCatalogIndex } from '../src/sources/catalogIndex.ts';
 import { positiveInteger } from '../src/sources/values.ts';
 
 const pageSize = 24;
@@ -32,6 +32,29 @@ const providers = {
     },
   },
 };
+
+// Matched by provider IDs where the release names, years, or episode boundaries disagree.
+const curatedReleases = [
+  [['aniliberty:ao-no-hako-2nd-season'], ['animevost:3996']],
+  [['aniliberty:fatestrange-fake'], ['animevost:3410']],
+  [['aniliberty:jujutsu-kaisen-0-movie'], ['animevost:2879']],
+  [['aniliberty:jujutsu-kaisen-season-2'], ['animevost:3014']],
+  [['aniliberty:sword-art-online-ii'], ['animevost:854']],
+  [['aniliberty:sword-art-online-movie-ordinal-scale'], ['animevost:1852']],
+  [['aniliberty:dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-no-darou-ka-ii'], ['animevost:2285']],
+  [['aniliberty:dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-no-darou-ka-iii'], ['animevost:2499']],
+  [['aniliberty:dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-darou-ka-gaiden-sword-oratoria'], ['animevost:1856']],
+  [
+    ['aniliberty:sword-art-online-alicization', 1, 36],
+    ['aniliberty:sword-art-online-alicization---war-of-underworld-part-2', 37, 11],
+    ['animevost:1987', 1, 47],
+  ],
+  [
+    ['aniliberty:dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-no-darou-ka-iv', 1, 11],
+    ['aniliberty:dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-no-darou-ka-iv-part-2', 12, 11],
+    ['animevost:2822', 1, 22],
+  ],
+];
 
 async function readPage(url, fetcher, signal) {
   for (let attempt = 0; ; attempt++) {
@@ -90,11 +113,11 @@ async function sweep(provider, fetcher, signal) {
     if (shortPage && !(await provider.atEnd?.(rawUrl, entries.length + rawCount, total, fetcher, signal))) {
       throw new Error(`${label}: unexpectedly short page`);
     }
-    for (const { alias, name, alternateName, year, poster, id } of result.items) {
+    for (const { alias, name, alternateName, searchName, year, poster, id } of result.items) {
       if (aliases.has(alias) || (id !== undefined && ids.has(id))) throw new Error(`${label}: duplicate release`);
       aliases.add(alias);
       if (id !== undefined) ids.add(id);
-      entries.push({ alias: `${source.key}:${alias}`, name, alternateName, year, poster });
+      entries.push({ alias: `${source.key}:${alias}`, name, alternateName, searchName, year, poster });
     }
     if (shortPage) break;
   }
@@ -132,6 +155,20 @@ function uniqueMatch(entry, index) {
 }
 
 function groupReleases(catalogs) {
+  const byAlias = new Map();
+  for (const entries of catalogs) {
+    for (const entry of entries) byAlias.set(entry.alias, entry);
+  }
+  const curated = new Map();
+  for (const members of curatedReleases) {
+    const group = members.map(([alias, first, count]) => {
+      const entry = byAlias.get(alias);
+      return entry && (first === undefined ? entry : { ...entry, episodeRange: { first, count } });
+    });
+    const complete = group.every(Boolean);
+    for (const [alias] of members) curated.set(alias, complete ? group : null);
+  }
+
   const indexes = catalogs.map(indexNames);
   const releases = [];
   const emitted = new Set();
@@ -139,14 +176,22 @@ function groupReleases(catalogs) {
   for (let position = 0; position < maxLength; position++) {
     for (let provider = 0; provider < catalogs.length; provider++) {
       const entry = catalogs[provider][position];
-      if (!entry || emitted.has(entry)) continue;
-      const match = uniqueMatch(entry, indexes[1 - provider]);
-      const group = [entry];
-      if (match && uniqueMatch(match, indexes[provider]) === entry) {
-        group.push(match);
-        emitted.add(match);
+      if (!entry || emitted.has(entry.alias)) continue;
+      const group = curated.get(entry.alias);
+      if (group !== undefined) {
+        releases.push(group ?? [entry]);
+        if (group) {
+          for (const member of group) emitted.add(member.alias);
+        }
+        continue;
       }
-      releases.push(group);
+      const match = uniqueMatch(entry, indexes[1 - provider]);
+      if (match && !curated.has(match.alias) && uniqueMatch(match, indexes[provider]) === entry) {
+        releases.push([entry, match]);
+        emitted.add(match.alias);
+      } else {
+        releases.push([entry]);
+      }
     }
   }
   return releases;
@@ -157,7 +202,9 @@ async function createIndex(fetcher) {
   try {
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(240_000)]);
     const catalogs = await Promise.all(Object.values(providers).map((provider) => sweep(provider, fetcher, signal)));
-    return { version: 1, generatedAt: Date.now(), releases: groupReleases(catalogs) };
+    const index = { version: catalogIndexVersion, generatedAt: Date.now(), releases: groupReleases(catalogs) };
+    if (!parseCatalogIndex(index)) throw new Error('invalid generated catalog index');
+    return index;
   } finally {
     controller.abort();
   }
@@ -181,7 +228,7 @@ async function readPrevious(url, fetcher) {
       }
     }
     if (seen.size === Object.keys(providers).length) {
-      return { version: 1, generatedAt: index.generatedAt, releases: index.releases };
+      return { version: catalogIndexVersion, generatedAt: index.generatedAt, releases: index.releases };
     }
   } catch {
     // Missing or unreadable history does not prevent a full fresh scan.

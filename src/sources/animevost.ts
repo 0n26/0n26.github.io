@@ -21,18 +21,21 @@ function asset(value: unknown, hosts: readonly string[], path: RegExp): URL | un
   return url;
 }
 
-function splitTitle(value: string | undefined): { name: string; alternateName?: string } {
-  const title = text(value);
+function splitTitle(value: unknown): { name: string; alternateName?: string } {
+  const title = text(value)?.replace(
+    /(?:\s*\[(?:(?:(?:OVA|ОВА|SP|спешл)\s+)?\d+(?:-\d+)?\s+из\s+\d+\+?|TV|спешл|\d+\s+серия\s+-\s+[^\[\]]+)\])+$/iu, '',
+  );
   if (!title) return { name: '' };
-  const [russianPart, rest] = title.split(/\s*\/\s*/, 2);
-  const name = text(russianPart) ?? title;
-  const english = rest ? text(rest.replace(/\s*\[[\s\S]*$/, '')) : undefined;
-  return { name, alternateName: english && english !== name ? english : undefined };
+  const separator = /\s+\/\s+/.exec(title);
+  if (!separator) return { name: title };
+  const name = title.slice(0, separator.index);
+  const alternateName = title.slice(separator.index + separator[0].length);
+  return { name, alternateName: alternateName === name ? undefined : alternateName };
 }
 
 function catalogEntry(value: unknown): CatalogEntry | undefined {
   const row = record(value);
-  const { name, alternateName } = splitTitle(text(row?.title));
+  const { name, alternateName } = splitTitle(row?.title);
   if (!positiveInteger(row?.id) || !name) return;
   const year = Number(row.year);
   return {

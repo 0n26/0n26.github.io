@@ -14,6 +14,24 @@ it('paginates unpaged search results, independently of the zero count returned b
   });
 });
 
+it('splits only the first spaced slash and removes only trailing catalog metadata', async () => {
+  const source = createAnimeVost(async () => Response.json({
+    state: { status: 'ok', count: 4 }, data: [
+      { id: 1, title: 'Судьба/Апокриф / Fate/Apocrypha [1-25 из 25] [OVA 1 из 1]' },
+      { id: 2, title: 'Ранма 1/2 / Ranma 1/2 / [Subtitle] [1-8 из 12+] [9 серия - 28 ноября]' },
+      { id: 3, title: 'Судьба/Апокриф [1 из 1]' },
+      { id: 4, title: 'Тайтл [Имя] / [Name] Story [Subtitle]' },
+    ],
+  }));
+  const { items } = await source.getCatalog('', 1, signal);
+  expect(items.map(({ name, alternateName }) => [name, alternateName])).toEqual([
+    ['Судьба/Апокриф', 'Fate/Apocrypha'],
+    ['Ранма 1/2', 'Ranma 1/2 / [Subtitle]'],
+    ['Судьба/Апокриф', undefined],
+    ['Тайтл [Имя]', '[Name] Story [Subtitle]'],
+  ]);
+});
+
 it('loads the catalog without URL.parse and ignores a malformed poster without losing the title', async () => {
   const source = createAnimeVost(async () => Response.json({
     state: { status: 'ok', count: 2 }, data: [
