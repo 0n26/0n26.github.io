@@ -31,14 +31,40 @@ export interface CatalogResult {
   incomplete?: boolean;
 }
 
+export interface CatalogOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
 export interface CatalogFilters {
-  genre?: number;
-  year?: number;
+  genres?: readonly number[];
+  types?: readonly string[];
+  publishStatuses?: readonly string[];
+  sorting?: string;
+  seasons?: readonly string[];
+  yearFrom?: number;
+  yearTo?: number;
+  ageRatings?: readonly string[];
 }
 
 export interface CatalogFilterOptions {
   genres: readonly { id: number; name: string }[];
+  types: readonly CatalogOption[];
+  publishStatuses: readonly CatalogOption[];
+  sorting: readonly CatalogOption[];
+  seasons: readonly CatalogOption[];
   years: readonly number[];
+  ageRatings: readonly CatalogOption[];
+  incomplete?: boolean;
+}
+
+export function hasCatalogFilters(filters?: CatalogFilters): boolean {
+  return Boolean(
+    filters?.genres?.length || filters?.types?.length || filters?.publishStatuses?.length
+    || filters?.sorting || filters?.seasons?.length || filters?.yearFrom || filters?.yearTo
+    || filters?.ageRatings?.length,
+  );
 }
 
 export interface ScheduleEntry {

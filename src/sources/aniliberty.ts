@@ -1,4 +1,5 @@
-import type { AnimeSource, AnimeTitle, CatalogEntry, Episode, Franchise, ScheduleEntry } from './source';
+import { catalogFilterValues, normalizeCatalogYears } from './catalogFilterValues.ts';
+import type { AnimeSource, AnimeTitle, CatalogEntry, CatalogOption, Episode, Franchise, ScheduleEntry } from './source';
 import { positiveInteger, record, text } from './values.ts';
 
 const ORIGIN = 'https://anilibria.top';
@@ -158,6 +159,23 @@ async function readList(response: Response): Promise<unknown[]> {
   return items;
 }
 
+function knownValues(values: readonly string[] | undefined, allowed: Readonly<Record<string, true>>): string[] {
+  return [...new Set(values?.filter((value) => Object.hasOwn(allowed, value)))];
+}
+
+function optionsFrom(items: unknown[], allowed: Readonly<Record<string, true>>): CatalogOption[] {
+  const options = new Map<string, CatalogOption>();
+  for (const item of items) {
+    const row = record(item);
+    const value = text(row?.value);
+    if (!value || !Object.hasOwn(allowed, value) || options.has(value)) continue;
+    const description = text(row?.description);
+    const label = text(row?.label) ?? description ?? value;
+    options.set(value, { value, label, description: description === label ? undefined : description });
+  }
+  return [...options.values()];
+}
+
 export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): AnimeSource {
   return {
     key: 'aniliberty',
@@ -166,12 +184,21 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
     async getCatalog(query, page, signal, filters) {
       const url = new URL(`${API}/catalog/releases`);
       if (query) url.searchParams.set('f[search]', query);
-      if (positiveInteger(filters?.genre)) url.searchParams.set('f[genres]', String(filters.genre));
-      if (positiveInteger(filters?.year)) {
-        const year = String(filters.year);
-        url.searchParams.set('f[years][from_year]', year);
-        url.searchParams.set('f[years][to_year]', year);
-      }
+      const genreIds = (filters?.genres ?? []).filter(positiveInteger);
+      if (genreIds.length) url.searchParams.set('f[genres]', genreIds.join(','));
+      const types = knownValues(filters?.types, catalogFilterValues.types);
+      if (types.length) url.searchParams.set('f[types]', types.join(','));
+      const publishStatuses = knownValues(filters?.publishStatuses, catalogFilterValues.publishStatuses);
+      if (publishStatuses.length) url.searchParams.set('f[publish_statuses]', publishStatuses.join(','));
+      const sorting = filters?.sorting;
+      if (sorting && Object.hasOwn(catalogFilterValues.sorting, sorting)) url.searchParams.set('f[sorting]', sorting);
+      const seasons = knownValues(filters?.seasons, catalogFilterValues.seasons);
+      if (seasons.length) url.searchParams.set('f[seasons]', seasons.join(','));
+      const { yearFrom, yearTo } = normalizeCatalogYears(filters?.yearFrom, filters?.yearTo);
+      if (yearFrom) url.searchParams.set('f[years][from_year]', String(yearFrom));
+      if (yearTo) url.searchParams.set('f[years][to_year]', String(yearTo));
+      const ageRatings = knownValues(filters?.ageRatings, catalogFilterValues.ageRatings);
+      if (ageRatings.length) url.searchParams.set('f[age_ratings]', ageRatings.join(','));
       url.searchParams.set('limit', '24');
       url.searchParams.set('page', String(page));
 
@@ -193,10 +220,17 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
     },
 
     async getCatalogFilters(signal) {
-      const [genres, years] = await Promise.all(
-        ['genres', 'years'].map(async (field) =>
+      const fields = ['genres', 'years', 'types', 'publish-statuses', 'sorting', 'seasons', 'age-ratings'] as const;
+      const results = await Promise.allSettled(
+        fields.map(async (field) =>
           readList(await fetcher(`${API}/catalog/references/${field}`, { signal, credentials: 'omit' })),
         ),
+      );
+      signal.throwIfAborted();
+      const failure = results.find((result) => result.status === 'rejected');
+      if (failure && results.every((result) => result.status === 'rejected')) throw failure.reason;
+      const [genres, years, types, publishStatuses, sorting, seasons, ageRatings] = results.map(
+        (result) => result.status === 'fulfilled' ? result.value : [],
       );
       const names = new Map<number, string>();
       for (const item of genres) {
@@ -207,6 +241,12 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
       return {
         genres: [...names].map(([id, name]) => ({ id, name })),
         years: [...new Set(years.filter(positiveInteger))].sort((a, b) => b - a),
+        types: optionsFrom(types, catalogFilterValues.types),
+        publishStatuses: optionsFrom(publishStatuses, catalogFilterValues.publishStatuses),
+        sorting: optionsFrom(sorting, catalogFilterValues.sorting),
+        seasons: optionsFrom(seasons, catalogFilterValues.seasons),
+        ageRatings: optionsFrom(ageRatings, catalogFilterValues.ageRatings),
+        incomplete: failure ? true : undefined,
       };
     },
 
