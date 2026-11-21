@@ -58,6 +58,49 @@ it('combines search, genre, and exact year before requesting the matching page',
   });
 });
 
+it('loads similar releases and franchise chronology without duplicates', async () => {
+  const signal = new AbortController().signal;
+  const source = createAniLiberty(async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === '/api/v1/anime/releases/test-release') {
+      return Response.json({ id: 42, alias: 'test-release', name: { main: 'Тест' } });
+    }
+    if (url.pathname === '/api/v1/anime/releases/recommended') {
+      expect(Object.fromEntries(url.searchParams)).toEqual({ release_id: '42', limit: '6' });
+      return Response.json([
+        { alias: 'similar-one', name: { main: 'Похожий' }, year: 2021 },
+        { alias: 'test-release', name: { main: 'Тест' } },
+        { alias: 'similar-one', name: { main: 'Дубль' } },
+        { alias: 'bad alias!', name: { main: 'Некорректный' } },
+      ]);
+    }
+    if (url.pathname === '/api/v1/anime/franchises/release/42') {
+      return Response.json([{
+        id: 'franchise-1',
+        name: 'Франшиза',
+        franchise_releases: [
+          { sort_order: 2, release: { alias: 'second-part', name: { main: 'Вторая часть' } } },
+          { sort_order: 1, release: { alias: 'test-release', name: { main: 'Тест' }, year: 2020 } },
+          { sort_order: 3, release: { alias: 'bad alias!', name: { main: 'Некорректный' } } },
+        ],
+      }]);
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  });
+
+  await expect(source.getRelated!({ alias: 'test-release', id: 42, name: 'Тест', episodes: [] } as any, signal)).resolves.toMatchObject({
+    similar: [{ alias: 'similar-one', name: 'Похожий', year: 2021 }],
+    franchises: [{
+      id: 'franchise-1',
+      name: 'Франшиза',
+      releases: [
+        { alias: 'test-release', name: 'Тест', year: 2020, order: 1 },
+        { alias: 'second-part', name: 'Вторая часть', order: 2 },
+      ],
+    }],
+  });
+});
+
 it('keeps published episode IDs and does not advertise a next episode for a finished season', async () => {
   const source = createAniLiberty(async (input) => {
     expect(String(input)).toBe('https://anilibria.top/api/v1/anime/schedule/week');

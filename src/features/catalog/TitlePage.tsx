@@ -1,8 +1,9 @@
-import { Alert, Group, Image, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Badge, Group, Image, Loader, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useCallback } from 'react';
-import { useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { getSource } from '../../sources';
-import type { AnimeSource, AnimeTitle, Episode } from '../../sources/source';
+import type { AnimeSource, AnimeTitle, Episode, Franchise } from '../../sources/source';
+import { ReleaseCard } from './ReleaseCard';
 import { Player } from '../player/Player';
 import { useSourceRequest } from './useSourceRequest';
 import { EpisodeNavigation, episodeCaption } from './EpisodeNavigation';
@@ -31,6 +32,70 @@ function Playback({ title, episode, sourceKey, hasSelection }: {
   const poster = episode.preview ?? title.poster;
   const episodeKey = JSON.stringify([sourceKey, title.alias, episode.id]);
   return <Player key={episodeKey} episodeKey={episodeKey} streams={episode.streams} poster={poster} />;
+}
+
+function Chronology({ franchise, currentAlias, routePrefix }: {
+  franchise: Franchise;
+  currentAlias: string;
+  routePrefix: string;
+}) {
+  return (
+    <div>
+      <Text fw={600} mb={6}>{franchise.name}</Text>
+      <ol className={styles.chronology}>
+        {franchise.releases.map((release) => (
+          <li key={release.alias} aria-current={release.alias === currentAlias ? 'page' : undefined}>
+            <Link to={`${routePrefix}/${encodeURIComponent(release.alias)}`} className={styles.chronologyLink}>
+              {release.name}
+            </Link>
+            {release.year && <Text span size="sm" c="dimmed"> · {release.year}</Text>}
+            {release.alias === currentAlias && <Badge size="xs" variant="light" ml="xs">Сейчас</Badge>}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function RelatedSections({ getRelated, title, currentAlias, routePrefix }: {
+  getRelated: NonNullable<AnimeSource['getRelated']>;
+  title: AnimeTitle;
+  currentAlias: string;
+  routePrefix: string;
+}) {
+  const load = useCallback((signal: AbortSignal) => getRelated(title, signal), [getRelated, title]);
+  const request = useSourceRequest(load);
+
+  if (request.status === 'loading') {
+    return <Group role="status" gap="xs"><Loader size="xs" aria-hidden /> <Text c="dimmed">Загружаем связанные тайтлы…</Text></Group>;
+  }
+  if (request.status === 'error') return null;
+
+  const { similar, franchises } = request.data;
+  if (similar.length === 0 && franchises.length === 0) return null;
+
+  return (
+    <Stack gap="lg">
+      {similar.length > 0 && (
+        <section aria-labelledby="similar-heading">
+          <Title order={2} size="h3" id="similar-heading" mb="sm">Похожее</Title>
+          <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 6 }} spacing="md">
+            {similar.map((entry) => <ReleaseCard key={entry.alias} to={`${routePrefix}/${encodeURIComponent(entry.alias)}`} entry={entry} />)}
+          </SimpleGrid>
+        </section>
+      )}
+      {franchises.length > 0 && (
+        <section aria-labelledby="franchise-heading">
+          <Title order={2} size="h3" id="franchise-heading" mb="sm">Франшиза (Хронология)</Title>
+          <Stack gap="md">
+            {franchises.map((franchise) => (
+              <Chronology key={franchise.id} franchise={franchise} currentAlias={currentAlias} routePrefix={routePrefix} />
+            ))}
+          </Stack>
+        </section>
+      )}
+    </Stack>
+  );
 }
 
 function TitleContent({ source, alias }: { source: AnimeSource; alias: string }) {
@@ -78,6 +143,14 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
           </Stack>
         </div>
       </details>
+      {source.getRelated && (
+        <RelatedSections
+          getRelated={source.getRelated}
+          title={title}
+          currentAlias={title.alias}
+          routePrefix={`/anime/${encodeURIComponent(source.key)}`}
+        />
+      )}
     </Stack>
   );
 }

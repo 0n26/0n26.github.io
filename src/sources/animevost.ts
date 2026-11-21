@@ -30,6 +30,7 @@ function catalogEntry(value: unknown): CatalogEntry | undefined {
     alias: String(row.id), name,
     poster: asset(row.urlImagePreview, posters, /^\/uploads\/posts\//)?.href,
     year: positiveInteger(year) ? year : undefined,
+    id: positiveInteger(row?.id) ? row.id : undefined,
   };
 }
 

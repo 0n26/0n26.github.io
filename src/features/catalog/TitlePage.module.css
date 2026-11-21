@@ -45,3 +45,26 @@
 .synopsis img {
   flex: none;
 }
+
+.chronology {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.4rem;
+  overflow-wrap: anywhere;
+}
+
+.chronologyLink {
+  color: var(--mantine-color-text);
+  text-decoration: none;
+}
+
+.chronologyLink:hover {
+  color: var(--mantine-primary-color-light-color);
+  text-decoration: underline;
+}
+
+.chronologyLink:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}

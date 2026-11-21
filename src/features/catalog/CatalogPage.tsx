@@ -1,9 +1,10 @@
-import { ActionIcon, Alert, AspectRatio, Button, Drawer, Group, Image, Loader, NativeSelect, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
+import { ActionIcon, Alert, Button, Drawer, Group, Loader, NativeSelect, Pagination, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useCallback, useState } from 'react';
 import type { SubmitEvent } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { defaultSource, getSource, sources } from '../../sources';
 import type { AnimeSource, CatalogFilters } from '../../sources/source';
+import { ReleaseCard } from './ReleaseCard';
 import { useSourceRequest } from './useSourceRequest';
 import styles from './Catalog.module.css';
 
@@ -168,13 +169,7 @@ function CatalogResults({ source, query, page, genre, year, changePage }: Catalo
           ) : (
             <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }} spacing={{ base: 'sm', sm: 'md' }} verticalSpacing="lg">
               {request.data.items.map((entry) => (
-                <Link key={entry.alias} to={`${routePrefix}/${encodeURIComponent(entry.alias)}`} className={styles.card}>
-                  <AspectRatio ratio={2 / 3} className={styles.poster}>
-                    {entry.poster ? <Image src={entry.poster} alt="" loading="lazy" decoding="async" /> : <div className={styles.placeholder}>Нет постера</div>}
-                  </AspectRatio>
-                  <Text fw={650} lineClamp={2} className={styles.cardTitle}>{entry.name}</Text>
-                  {entry.year && <Text size="sm" c="dimmed">{entry.year}</Text>}
-                </Link>
+                <ReleaseCard key={entry.alias} to={`${routePrefix}/${encodeURIComponent(entry.alias)}`} entry={entry} />
               ))}
             </SimpleGrid>
           )}
