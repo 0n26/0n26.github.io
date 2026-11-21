@@ -46,6 +46,21 @@ export interface AnimeTitle extends CatalogEntry {
   restriction?: 'geo' | 'copyright' | 'unknown';
 }
 
+export interface FranchiseRelease extends CatalogEntry {
+  order: number;
+}
+
+export interface Franchise {
+  id: string;
+  name: string;
+  releases: readonly FranchiseRelease[];
+}
+
+export interface RelatedInfo {
+  similar: readonly CatalogEntry[];
+  franchises: readonly Franchise[];
+}
+
 export interface AnimeSource {
   key: string;
   name: string;
@@ -53,4 +68,5 @@ export interface AnimeSource {
   getCatalogFilters?(signal: AbortSignal): Promise<CatalogFilterOptions>;
   getSchedule?(signal: AbortSignal): Promise<readonly ScheduleEntry[]>;
   getTitle(alias: string, signal: AbortSignal): Promise<AnimeTitle | null>;
+  getRelated?(alias: string, signal: AbortSignal): Promise<RelatedInfo>;
 }

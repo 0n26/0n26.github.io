@@ -1,4 +1,4 @@
-import type { AnimeSource, AnimeTitle, CatalogEntry, Episode, ScheduleEntry } from './source';
+import type { AnimeSource, AnimeTitle, CatalogEntry, Episode, Franchise, ScheduleEntry } from './source';
 import { positiveInteger, record, text } from './values';
 
 const ORIGIN = 'https://anilibria.top';
@@ -51,6 +51,22 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
     poster: imageUrl(release.poster),
     year: positiveInteger(release.year) ? release.year : undefined,
   };
+}
+
+function franchiseFrom(value: unknown): Franchise | undefined {
+  const raw = record(value);
+  const id = text(raw?.id);
+  const name = text(raw?.name);
+  if (!raw || !id || !name) return;
+  const releases = (Array.isArray(raw.franchise_releases) ? raw.franchise_releases : [])
+    .flatMap((item) => {
+      const row = record(item);
+      const release = record(row?.release);
+      const entry = release && catalogEntry(release);
+      return entry ? [{ ...entry, order: isFiniteNumber(row?.sort_order) ? row.sort_order : Number.MAX_SAFE_INTEGER }] : [];
+    })
+    .sort((a, b) => a.order - b.order);
+  return releases.length > 0 ? { id, name, releases } : undefined;
 }
 
 function restrictionFor(release: Record<string, unknown>): AnimeTitle['restriction'] {
@@ -194,6 +210,33 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
         restriction,
         episodes: episodesFrom(release.episodes ?? [], restriction !== undefined),
       };
+    },
+
+    async getRelated(alias, signal) {
+      if (!ALIAS.test(alias)) return { similar: [], franchises: [] };
+      const release = record(await readJson(await fetcher(new URL(`${API}/releases/${alias}`), { signal, credentials: 'omit' })));
+      const id = positiveInteger(release?.id) ? release.id : undefined;
+      if (!id) return { similar: [], franchises: [] };
+
+      const [similarItems, franchiseItems] = await Promise.all([
+        readList(await fetcher(`${API}/releases/recommended?release_id=${id}&limit=6`, { signal, credentials: 'omit' })),
+        readList(await fetcher(`${API}/franchises/release/${id}`, { signal, credentials: 'omit' })),
+      ]);
+
+      const similar = new Map<string, CatalogEntry>();
+      for (const item of similarItems) {
+        const raw = record(item);
+        const entry = raw && catalogEntry(raw);
+        if (entry && entry.alias !== alias && !similar.has(entry.alias)) similar.set(entry.alias, entry);
+      }
+
+      const franchises = new Map<string, Franchise>();
+      for (const item of franchiseItems) {
+        const franchise = franchiseFrom(item);
+        if (franchise) franchises.set(franchise.id, franchise);
+      }
+
+      return { similar: [...similar.values()].slice(0, 6), franchises: [...franchises.values()] };
     },
   };
 }
