@@ -40,8 +40,25 @@ export function parseCatalogIndex(value: unknown, now = Date.now()): CatalogInde
           || !Number.isSafeInteger(range.first + range.count)) return null;
         episodeRange = { first: range.first, count: range.count };
       }
-      release.push({ alias, name, alternateName, searchName, episodeRange,
-        year: positiveInteger(entry.year) ? entry.year : undefined, poster: poster?.startsWith('https://') ? poster : undefined });
+      let genres: string[] | undefined;
+      if (Array.isArray(entry.genres)) {
+        for (const genre of entry.genres) {
+          const name = text(genre);
+          if (name) (genres ??= []).push(name);
+        }
+      }
+      release.push({
+        alias, name, alternateName, searchName, episodeRange,
+        year: positiveInteger(entry.year) ? entry.year : undefined,
+        poster: poster?.startsWith('https://') ? poster : undefined,
+        ageRating: text(entry.ageRating),
+        publishStatus: text(entry.publishStatus),
+        type: text(entry.type),
+        season: text(entry.season),
+        genres,
+        episodesTotal: positiveInteger(entry.episodesTotal) ? entry.episodesTotal : undefined,
+        episodeDurationMinutes: positiveInteger(entry.episodeDurationMinutes) ? entry.episodeDurationMinutes : undefined,
+      });
     }
     if (release.length === 3) {
       const [first, second, complete] = release;

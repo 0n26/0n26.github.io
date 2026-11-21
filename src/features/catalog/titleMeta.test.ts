@@ -6,6 +6,8 @@ const title: AnimeTitle = {
   alias: 'hotaru-no-yomeiri',
   name: 'Свадьба светлячков',
   year: 2026,
+  ageRating: '16+',
+  publishStatus: 'Онгоинг',
   type: 'ТВ',
   season: 'Осень',
   genres: ['Исторический', 'Романтика'],
@@ -28,10 +30,13 @@ it('formats total watch time in hours and minutes', () => {
 
 it('builds the title metadata rows in the requested order', () => {
   expect(titleMetaRows(title)).toEqual([
+    { label: 'Возраст', value: '16+' },
+    { label: 'Статус', value: 'Онгоинг' },
     { label: 'Тип', value: 'ТВ' },
     { label: 'Сезон', value: 'Осень' },
     { label: 'Жанры', value: 'Исторический • Романтика' },
     { label: 'Год выхода', value: '2026' },
+    { label: 'Длительность', value: '~ 24 мин' },
     { label: 'Всего эпизодов', value: '12 эпизодов' },
     { label: 'Общее время просмотра', value: '4 часа, 48 минут' },
   ]);
@@ -39,9 +44,20 @@ it('builds the title metadata rows in the requested order', () => {
 
 it('omits metadata that the source did not provide', () => {
   expect(titleMetaRows({ alias: 'x', name: 'X', episodes: [] })).toEqual([]);
-  expect(titleMetaRows({ ...title, genres: [], episodesTotal: undefined, episodeDurationMinutes: undefined })).toEqual([
+  expect(titleMetaRows({ ...title, ageRating: undefined, publishStatus: undefined, genres: [],
+    episodesTotal: undefined, episodeDurationMinutes: undefined })).toEqual([
     { label: 'Тип', value: 'ТВ' },
     { label: 'Сезон', value: 'Осень' },
     { label: 'Год выхода', value: '2026' },
   ]);
+});
+
+it.each([
+  [{ episodesTotal: undefined }, 'Длительность'],
+  [{ episodeDurationMinutes: -24 }, 'Всего эпизодов'],
+  [{ episodesTotal: Number.MAX_SAFE_INTEGER }, 'Всего эпизодов'],
+] as const)('does not show a total for incomplete or invalid durations (%j)', (fields, remainingLabel) => {
+  const rows = titleMetaRows({ ...title, ...fields });
+  expect(rows.map(({ label }) => label)).toContain(remainingLabel);
+  expect(rows.some(({ label }) => label === 'Общее время просмотра')).toBe(false);
 });

@@ -9,7 +9,12 @@ const IMAGE_SIZES = ['preview', 'src', 'thumbnail'] as const;
 const ALIAS = /^[a-z0-9_-]+$/i;
 const TYPE_NAMES: Readonly<Record<string, string>> = {
   tv: 'ТВ',
+  ona: 'ONA',
+  web: 'WEB',
+  ova: 'OVA',
+  oad: 'OAD',
   movie: 'Фильм',
+  dorama: 'Дорама',
   special: 'Спешл',
 };
 const SEASON_NAMES: Readonly<Record<string, string>> = {
@@ -74,6 +79,23 @@ function genresFrom(value: unknown): string[] | undefined {
   return genres.length > 0 ? genres : undefined;
 }
 
+function ageRatingFrom(value: unknown): string | undefined {
+  const row = record(value);
+  const label = text(row?.label) ?? text(row?.description) ?? text(value);
+  if (label && /^\d+\+$/.test(label)) return label;
+  const age = /^R(0|6|12|16|18)_PLUS$/i.exec(text(row?.value) ?? text(value) ?? '')?.[1];
+  if (age) return `${age}+`;
+}
+
+function publishStatusFrom(release: Record<string, unknown>): string | undefined {
+  const status = release.publish_status;
+  const code = (text(record(status)?.value) ?? text(status))?.toUpperCase();
+  const ongoing = code === 'IS_ONGOING' ? true
+    : code === 'IS_NOT_ONGOING' ? false
+      : release.is_ongoing;
+  if (typeof ongoing === 'boolean') return ongoing ? 'Онгоинг' : 'Завершён';
+}
+
 function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefined {
   const alias = text(release.alias);
   if (!alias || !ALIAS.test(alias)) return;
@@ -90,6 +112,8 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
     poster: imageUrl(release.poster),
     year: positiveInteger(release.year) ? release.year : undefined,
     id: positiveInteger(release.id) ? release.id : undefined,
+    ageRating: ageRatingFrom(release.age_rating),
+    publishStatus: publishStatusFrom(release),
     type: localized(release.type, TYPE_NAMES),
     season: localized(release.season, SEASON_NAMES),
     genres: genresFrom(release.genres),

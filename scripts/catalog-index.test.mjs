@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { catalogIndexVersion } from '../src/sources/catalogIndex.ts';
+import { catalogIndexVersion, parseCatalogIndex } from '../src/sources/catalogIndex.ts';
 import { publishCatalogIndex } from './catalog-index.mjs';
 
 const previousUrl = 'https://0n26.github.io/catalog-index.json';
@@ -64,6 +64,13 @@ it('groups unique title and year matches across full sweeps, keeping ambiguous a
   Object.assign(left[0], {
     name: { main: 'Ночь', english: 'Ｔhe　Night' },
     poster: { optimized: { preview: '/posters/night.webp' } },
+    age_rating: { label: '12+' },
+    is_ongoing: false,
+    type: { value: 'TV', description: 'ТВ' },
+    season: { value: 'winter', description: 'Зима' },
+    genres: [{ name: 'Драма' }],
+    episodes_total: 12,
+    average_duration_of_episode: 24,
     description: 'Not public', episodes: [{ video: 'https://example.test/video' }],
   });
   left[1].name.main = right[24].title = right[48].title = 'Ambiguous';
@@ -74,6 +81,10 @@ it('groups unique title and year matches across full sweeps, keeping ambiguous a
   Object.assign(left[4], { alias: 'ao-no-hako', name: { main: 'Голубая шкатулка', english: 'Ao no Hako', alternative: 'Blue Box' } });
   right[4].title = 'Blue Box';
   Object.assign(right[25], { title: 'Другая ночь / the    night [TV]', urlImagePreview: 'http://animevost.org/uploads/posts/night.jpg' });
+  const metadata = {
+    ageRating: '12+', publishStatus: 'Завершён', type: 'ТВ', season: 'Зима',
+    genres: ['Драма'], episodesTotal: 12, episodeDurationMinutes: 24,
+  };
 
   await publishCatalogIndex(output, undefined, fetcher);
 
@@ -86,9 +97,11 @@ it('groups unique title and year matches across full sweeps, keeping ambiguous a
     'aniliberty:left-1', 'animevost:1', 'aniliberty:left-2', 'animevost:2',
   ]);
   expect(index.releases.filter((release) => release.length > 1)).toEqual([[
-    { alias: 'aniliberty:left-1', name: 'Ночь', alternateName: 'Ｔhe　Night', year: 2024, poster: 'https://anilibria.top/posters/night.webp' },
+    { alias: 'aniliberty:left-1', name: 'Ночь', alternateName: 'Ｔhe　Night', year: 2024,
+      poster: 'https://anilibria.top/posters/night.webp', ...metadata },
     { alias: 'animevost:26', name: 'Другая ночь', alternateName: 'the    night', year: 2024, poster: 'https://animevost.org/uploads/posts/night.jpg' },
   ]]);
+  expect(parseCatalogIndex(index)?.byAlias.get('aniliberty:left-1')?.[0]).toMatchObject(metadata);
   expect(index.releases.find(([entry]) => entry.alias === 'aniliberty:ao-no-hako')).toMatchObject([
     { alias: 'aniliberty:ao-no-hako', alternateName: 'Ao no Hako', searchName: 'Blue Box' },
   ]);
