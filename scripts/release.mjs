@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -9,7 +10,6 @@ const sections = new Map([
   ['feat', 'Возможности'], ['fix', 'Исправления'], ['perf', 'Производительность'],
   ['revert', 'Отменённые изменения'], ['deps', 'Зависимости'],
 ]);
-const files = ['package.json', 'package-lock.json', 'changelog.md'];
 
 export function nextVersion(base, title, body) {
   const version = versionPattern.exec(base);
@@ -21,50 +21,27 @@ export function nextVersion(base, title, body) {
   return sections.has(change[1]) ? `${major}.${minor}.${patch + 1}` : base;
 }
 
-function firstRelease(changelog) {
-  const start = changelog.search(releaseHeading);
-  if (start < 0) return { before: changelog, entry: '', after: '' };
-  const next = changelog.slice(start + 3).search(releaseHeading);
-  const end = next < 0 ? changelog.length : start + 3 + next;
-  return { before: changelog.slice(0, start), entry: changelog.slice(start, end), after: changelog.slice(end) };
-}
-
-function releaseEntry(repository, base, version, pr) {
+function releaseEntry(repository, base, version, { title, body, date, number }) {
   const url = `https://github.com/${repository}`;
-  const type = pr.title.match(/^[a-z]+/)[0];
-  const subject = pr.title.slice(pr.title.indexOf(':') + 2);
-  const body = pr.body ?? '';
+  const type = title.match(/^[a-z]+/)[0];
+  const subject = title.slice(title.indexOf(':') + 2);
   const migration = breakingChange.exec(body)?.[1];
   const describe = [describeBody(body), migration && `**Несовместимость:** ${migration}`].filter(Boolean).join('\n\n');
-  const entry = `## [${version}](${url}/compare/v${base}...v${version}) (${pr.created_at.slice(0, 10)})\n\n` +
-    `<!-- version-pr: ${pr.number} -->\n\n### ${sections.get(type) ?? 'Несовместимые изменения'}\n\n` +
-    `* ${subject} ([#${pr.number}](${url}/pull/${pr.number}))`;
+  const entry = `## [${version}](${url}/compare/v${base}...v${version}) (${date.slice(0, 10)})\n\n` +
+    `### ${sections.get(type) ?? 'Несовместимые изменения'}\n\n` +
+    `* ${subject} ([#${number}](${url}/pull/${number}))`;
   return describe ? `${entry}\n\n${describe.replace(/^(?=.)/gm, '  ')}` : entry;
 }
 
-export function releaseFiles(repository, base, pr, current) {
-  const version = nextVersion(base, pr.title, pr.body ?? '');
-  const pkg = JSON.parse(current['package.json']);
-  const lock = JSON.parse(current['package-lock.json']);
-  const changes = {};
-  if (pkg.version !== version) {
-    pkg.version = version;
-    changes['package.json'] = `${JSON.stringify(pkg, null, 2)}\n`;
-  }
-  if (lock.version !== version || lock.packages[''].version !== version) {
-    lock.version = lock.packages[''].version = version;
-    changes['package-lock.json'] = `${JSON.stringify(lock, null, 2)}\n`;
-  }
-
-  const changelog = current['changelog.md'];
-  const { before, entry, after } = firstRelease(changelog);
-  const marker = `<!-- version-pr: ${pr.number} -->`;
-  const history = entry.split('\n')[2] === marker ? after : entry + after;
-  const next = version === base ? '' :
-    `${releaseEntry(repository, base, version, pr)}\n\n`;
-  const updated = `${before}${next}${history}`.trimEnd() + '\n';
-  if (updated !== changelog) changes['changelog.md'] = updated;
-  return { version, changes };
+function metadata(read, version, changelog) {
+  const pkg = JSON.parse(read('package.json'));
+  const lock = JSON.parse(read('package-lock.json'));
+  pkg.version = lock.version = lock.packages[''].version = version;
+  return {
+    'package.json': `${JSON.stringify(pkg, null, 2)}\n`,
+    'package-lock.json': `${JSON.stringify(lock, null, 2)}\n`,
+    'changelog.md': changelog,
+  };
 }
 
 function describeBody(message) {
@@ -78,113 +55,91 @@ function describeBody(message) {
     .trim();
 }
 
-function command(executable, args, input) {
-  return execFileSync(executable, args, { encoding: 'utf8', input, maxBuffer: 8 * 1024 * 1024 });
+function command(executable, args, options) {
+  return execFileSync(executable, args, { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, ...options });
 }
 
 function git(...args) {
   return command('git', args).trimEnd();
 }
 
-function github(...args) {
-  return command('gh', ['api', ...args]);
+function tagVersion(tag) {
+  if (!tag?.startsWith('v') || !versionPattern.test(tag.slice(1))) throw new Error(`Неизвестный тег релиза: ${tag}`);
+  return tag.slice(1);
 }
 
-function gitVersion(ref) {
-  return JSON.parse(git('show', `${ref}:package.json`)).version;
-}
-
-function verify(repository, pr) {
-  const current = Object.fromEntries(files.map((file) => [file, readFileSync(file, 'utf8')]));
-  const { version, changes } = releaseFiles(repository, gitVersion(pr.base.sha), pr, current);
-  const pending = Object.keys(changes);
-  if (pending.length) {
-    console.error(`Для ${version} нужно обновить ${pending.join(', ')}. Тесты запустятся после обновления релизных файлов.`);
-    process.exitCode = 1;
+function snapshot(tag, source, date, files) {
+  const temp = mkdtempSync(join(tmpdir(), 'release-index-'));
+  try {
+    // Build the tag tree without staging changes or touching main's checkout.
+    const env = { ...process.env, GIT_INDEX_FILE: join(temp, 'index') };
+    const index = (...args) => command('git', args, { env }).trim();
+    index('read-tree', source);
+    for (const [file, content] of Object.entries(files)) {
+      const blob = command('git', ['hash-object', '-w', '--stdin'], { input: content }).trim();
+      index('update-index', '--cacheinfo', `100644,${blob},${file}`);
+    }
+    return command('git', ['commit-tree', index('write-tree'), '-p', source, '-m', `Release snapshot: ${tag}`], {
+      env: {
+        ...env,
+        GIT_AUTHOR_NAME: 'github-actions[bot]', GIT_AUTHOR_EMAIL: '41898282+github-actions[bot]@users.noreply.github.com',
+        GIT_COMMITTER_NAME: 'github-actions[bot]', GIT_COMMITTER_EMAIL: '41898282+github-actions[bot]@users.noreply.github.com',
+        GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date,
+      },
+    }).trim();
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
   }
 }
 
-export function verifiedRequest(run, jobs, pr, repository) {
-  const request = run.pull_requests.find(({ number }) => number === pr.number);
-  const steps = jobs.find(({ name }) => name === 'verify')?.steps ?? [];
-  return run.event === 'pull_request' && run.path === '.github/workflows/ci.yml' &&
-    run.conclusion === 'failure' && run.head_sha === pr.head.sha && request?.base.sha === pr.base.sha &&
-    steps.some(({ name, conclusion }) => name === 'Run all checks' && conclusion === 'skipped') &&
-    steps.some(({ name, conclusion }) => name === 'Verify release files' && conclusion === 'failure') &&
-    pr.state === 'open' && !pr.draft && pr.base.ref === 'main' && pr.head.ref !== 'main' &&
-    pr.base.repo.full_name === repository && pr.head.repo?.full_name === repository;
-}
-
-function prepare(repository, run) {
-  const [request] = run.pull_requests;
-  if (!request || run.pull_requests.length !== 1) return;
-  const api = `repos/${repository}`;
-  const pr = JSON.parse(github(`${api}/pulls/${request.number}`));
-  const { jobs } = JSON.parse(github(`${api}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs`));
-  if (!verifiedRequest(run, jobs, pr, repository)) return;
-  const { status } = JSON.parse(github(`${api}/compare/${pr.base.sha}...${pr.head.sha}`, '--jq', '{status}'));
-  if (status !== 'ahead') {
-    console.log('Обновите ветку PR из main, чтобы пересчитать версию.');
-    return;
-  }
-  const content = (file, sha) => {
-    const response = JSON.parse(github(`${api}/contents/${file}?ref=${sha}`));
-    return Buffer.from(response.content, 'base64').toString('utf8');
-  };
-  const base = JSON.parse(content('package.json', pr.base.sha)).version;
-  const current = Object.fromEntries(files.map((file) => [file, content(file, pr.head.sha)]));
-  const { version, changes } = releaseFiles(repository, base, pr, current);
-  const additions = Object.entries(changes).map(([path, text]) => ({
-    path, contents: Buffer.from(text).toString('base64'),
-  }));
-  if (!additions.length) return;
-  writeFileSync(join(process.env.RUNNER_TEMP, 'version-commit.json'), JSON.stringify({
-    query: 'mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }',
-    variables: { input: {
-      branch: { repositoryNameWithOwner: repository, branchName: pr.head.ref },
-      expectedHeadOid: pr.head.sha,
-      message: { headline: `chore(release): синхронизировать версию ${version}` },
-      fileChanges: { additions },
-    } },
-  }));
-  appendFileSync(process.env.GITHUB_OUTPUT, 'pending=true\n');
-}
-
-function publish() {
-  const latest = command('gh', ['release', 'view', '--json', 'tagName', '--jq', '.tagName']).trim();
-  if (!latest.startsWith('v') || !versionPattern.test(latest.slice(1))) throw new Error(`Неизвестный тег релиза: ${latest}`);
-  let version = latest.slice(1);
-  const revisions = git('log', '--first-parent', '--reverse', '--format=%H', `${latest}..HEAD`, '--', 'package.json');
+function publish(repository) {
+  let tag = command('gh', ['release', 'view', '--json', 'tagName', '--jq', '.tagName']).trim();
+  let version = tagVersion(tag);
+  const ref = `refs/tags/${tag}`;
+  const source = git('show', '-s', '--format=%s', ref) === `Release snapshot: ${tag}` ? `${ref}^` : ref;
+  git('merge-base', '--is-ancestor', source, 'HEAD');
+  let changelog = git('show', `${ref}:changelog.md`) + '\n';
+  const revisions = git('rev-list', '--first-parent', '--reverse', `${source}..HEAD`);
   for (const sha of revisions ? revisions.split('\n') : []) {
-    const next = gitVersion(sha);
+    const [subject, date, ...lines] = git('show', '-s', '--format=%s%n%cI%n%b', sha).split('\n');
+    const pr = /^(.*) \(#([1-9]\d*)\)$/.exec(subject);
+    const title = pr?.[1] ?? subject;
+    const body = lines.join('\n');
+    const next = nextVersion(version, title, body);
     if (next === version) continue;
-    const [title, ...lines] = git('show', '-s', '--format=%s%n%b', sha).split('\n');
-    if (nextVersion(version, title, lines.join('\n')) !== next) {
-      throw new Error(`Версия ${next} не совпадает с сообщением squash-коммита ${sha}.`);
-    }
-    const { entry } = firstRelease(git('show', `${sha}:changelog.md`));
-    if (!versionPattern.test(next) || !entry.startsWith(`## [${next}]`)) {
-      throw new Error(`Для ${sha} нет заметок версии ${next}.`);
-    }
-    const tag = `v${next}`;
-    command('gh', ['release', 'create', tag, '--target', sha, '--title', tag, '--notes-file', '-'], entry.trimEnd());
+    if (!pr) throw new Error(`В сообщении squash-коммита ${sha} нет номера PR.`);
+
+    const entry = releaseEntry(repository, version, next, { title, body, date, number: pr[2] });
+    const start = changelog.search(releaseHeading);
+    if (start < 0) throw new Error(`В теге ${tag} нет истории релизов.`);
+    changelog = `${changelog.slice(0, start)}${entry}\n\n${changelog.slice(start)}`;
+    tag = `v${next}`;
+    const commit = snapshot(tag, sha, date, metadata((file) => git('show', `${sha}:${file}`), next, changelog));
+    git('-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', 'origin', `${commit}:refs/tags/${tag}`);
+    command('gh', ['release', 'create', tag, '--verify-tag', '--latest', '--title', tag, '--notes-file', '-'], { input: entry });
     version = next;
+  }
+  appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`);
+}
+
+function materialize(tag) {
+  const version = tagVersion(tag);
+  const changelog = git('show', `refs/tags/${tag}:changelog.md`) + '\n';
+  for (const [file, content] of Object.entries(metadata((file) => readFileSync(file, 'utf8'), version, changelog))) {
+    writeFileSync(file, content);
   }
 }
 
 if (import.meta.main) {
-  const repository = process.env.GITHUB_REPOSITORY;
-  switch (process.argv[2]) {
-    case 'verify':
-      verify(repository, JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')).pull_request);
-      break;
-    case 'prepare':
-      prepare(repository, JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')).workflow_run);
+  const [, , mode, tag] = process.argv;
+  switch (mode) {
+    case 'materialize':
+      materialize(tag);
       break;
     case 'publish':
-      publish();
+      publish(process.env.GITHUB_REPOSITORY);
       break;
     default:
-      throw new Error('Укажите verify, prepare или publish.');
+      throw new Error('Укажите publish или materialize <tag>.');
   }
 }
