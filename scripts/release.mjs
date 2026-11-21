@@ -94,14 +94,44 @@ function gitVersion(ref) {
   return JSON.parse(git('show', `${ref}:package.json`)).version;
 }
 
-function verify(repository, pr) {
+function localRelease(repository, pr) {
   const current = Object.fromEntries(files.map((file) => [file, readFileSync(file, 'utf8')]));
-  const { version, changes } = releaseFiles(repository, gitVersion(pr.base.sha), pr, current);
+  return releaseFiles(repository, gitVersion(pr.base.sha), pr, current);
+}
+
+function verify(repository, pr) {
+  const { version, changes } = localRelease(repository, pr);
   const pending = Object.keys(changes);
   if (pending.length) {
-    console.error(`Для ${version} нужно обновить ${pending.join(', ')}. Тесты запустятся после обновления релизных файлов.`);
+    console.error(`Для ${version} нужно обновить ${pending.join(', ')}.`);
+    if (pr.head.repo?.full_name !== repository) {
+      console.error(`GitHub App не может записать изменения в форк. Обновите ветку из main и выполните:\n` +
+        `node scripts/release.mjs sync https://github.com/${repository}/pull/${pr.number}`);
+    } else {
+      console.error('Тесты запустятся после обновления релизных файлов ботом.');
+    }
     process.exitCode = 1;
   }
+}
+
+function sync(url) {
+  const match = /^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/pull\/([1-9]\d*)\/?$/.exec(url);
+  if (!match) throw new Error('Укажите URL открытого PR: node scripts/release.mjs sync https://github.com/OWNER/REPO/pull/NUMBER');
+  const [, repository, number] = match;
+  const pr = JSON.parse(github(`repos/${repository}/pulls/${number}`));
+  if (pr.state !== 'open' || pr.base.ref !== 'main') throw new Error('Нужен открытый PR в main.');
+  if (git('rev-parse', 'HEAD') !== pr.head.sha) throw new Error('Переключитесь на актуальный коммит ветки PR.');
+  if (git('merge-base', 'HEAD', pr.base.sha) !== pr.base.sha) {
+    throw new Error('Сначала обновите ветку PR из main и отправьте её на GitHub.');
+  }
+  if (git('diff', '--name-only', 'HEAD', '--', ...files)) {
+    throw new Error('Сначала сохраните локальные изменения релизных файлов.');
+  }
+  const { version, changes } = localRelease(repository, pr);
+  for (const [file, content] of Object.entries(changes)) writeFileSync(file, content);
+  console.log(Object.keys(changes).length
+    ? `Версия ${version} подготовлена. Закоммитьте релизные файлы и отправьте их в ветку PR.`
+    : `Релизные файлы уже актуальны (${version}).`);
 }
 
 export function verifiedRequest(run, jobs, pr, repository) {
@@ -181,10 +211,13 @@ if (import.meta.main) {
     case 'prepare':
       prepare(repository, JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')).workflow_run);
       break;
+    case 'sync':
+      sync(process.argv[3]);
+      break;
     case 'publish':
       publish();
       break;
     default:
-      throw new Error('Укажите verify, prepare или publish.');
+      throw new Error('Укажите verify, prepare, sync или publish.');
   }
 }
