@@ -1,12 +1,19 @@
+export interface EpisodeRange {
+  first: number;
+  count: number;
+}
+
 export interface VoiceOption {
   source: string;
   alias: string;
+  episodeRange?: EpisodeRange;
 }
 
 export interface CatalogEntry {
   alias: string;
   name: string;
   alternateName?: string;
+  searchName?: string;
   poster?: string;
   year?: number;
   id?: number;

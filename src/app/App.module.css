@@ -50,7 +50,7 @@
     display: inline;
   }
 
-  .catalogHeader .secondaryLink {
+  .catalogHeader .secondaryLink, .aboutLink {
     display: none;
   }
 
