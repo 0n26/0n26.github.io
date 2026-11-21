@@ -44,6 +44,7 @@ export interface CatalogFilterOptions {
   seasons: readonly CatalogOption[];
   years: readonly number[];
   ageRatings: readonly CatalogOption[];
+  incomplete?: boolean;
 }
 
 export function hasCatalogFilters(filters?: CatalogFilters): boolean {

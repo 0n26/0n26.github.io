@@ -146,7 +146,10 @@ function CatalogFilterFields({ load, filters, apply }: {
   return (
     <>
       <ActionIcon size={44} variant="default" aria-label="Фильтры" title="Фильтры" aria-haspopup="dialog"
-        aria-expanded={opened} onClick={() => setOpened(true)}>
+        aria-expanded={opened} onClick={() => {
+          setSelected(filters);
+          setOpened(true);
+        }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
           <path d="M2 7h5m6 0h9M2 17h11m6 0h3" /><circle cx="10" cy="7" r="3" /><circle cx="16" cy="17" r="3" />
         </svg>
@@ -163,6 +166,7 @@ function CatalogFilterFields({ load, filters, apply }: {
         closeButtonProps={{ 'aria-label': 'Закрыть фильтры' }}>
         {request.status === 'loading' && <Text role="status">Загружаем фильтры…</Text>}
         {request.status === 'error' && <Text role="alert">Не удалось загрузить фильтры.</Text>}
+        {options?.incomplete && <Text role="status">Не удалось загрузить часть фильтров.</Text>}
         {opened && options && (
           <form onSubmit={submit}>
             <Stack gap="md">
@@ -171,6 +175,7 @@ function CatalogFilterFields({ load, filters, apply }: {
                 description="В выдаче будут тайтлы со всеми выбранными жанрами"
                 placeholder="Все жанры"
                 data={genreData}
+                disabled={genreData.length === 0}
                 value={(selected.genres ?? []).map(String)}
                 onChange={(values) => setSelected((current) => ({
                   ...current, genres: values.length ? values.map(Number) : undefined,
@@ -190,6 +195,7 @@ function CatalogFilterFields({ load, filters, apply }: {
                 description="Укажите способ сортировки для отображения всех тайтлов в каталоге"
                 placeholder="По обновлению"
                 data={options.sorting.map(({ value, label }) => ({ value, label }))}
+                disabled={options.sorting.length === 0}
                 value={selected.sorting ?? null}
                 onChange={(value) => setSelected((current) => ({ ...current, sorting: value ?? undefined }))}
                 searchable clearable nothingFoundMessage="Ничего не найдено" />
@@ -236,6 +242,7 @@ function OptionChips({ label, description, options, value, onChange }: {
   value: readonly string[] | undefined;
   onChange: (value: readonly string[]) => void;
 }) {
+  if (options.length === 0) return null;
   return (
     <Stack gap="xs">
       <Text size="sm" fw={500} component="span">{label}</Text>

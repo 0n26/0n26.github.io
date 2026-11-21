@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { createAniLiberty } from './aniliberty';
+import { createCombinedSource } from './combined';
 
 const validStream = 'https://example.com/720.m3u8?token=keep';
 
@@ -56,6 +57,74 @@ it('combines search, genre, and exact year before requesting the matching page',
     page: 2,
     totalPages: 3,
   });
+});
+
+it('loads similar releases and franchise chronology without duplicates', async () => {
+  const signal = new AbortController().signal;
+  const source = createAniLiberty(async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === '/api/v1/anime/releases/test-release') {
+      return Response.json({ id: 42, alias: 'test-release', name: { main: 'Тест' } });
+    }
+    if (url.pathname === '/api/v1/anime/releases/recommended') {
+      expect(Object.fromEntries(url.searchParams)).toEqual({ release_id: '42', limit: '6' });
+      return Response.json([
+        { alias: 'similar-one', name: { main: 'Похожий' }, year: 2021 },
+        { alias: 'test-release', name: { main: 'Тест' } },
+        { alias: 'similar-one', name: { main: 'Дубль' } },
+        { alias: 'bad alias!', name: { main: 'Некорректный' } },
+      ]);
+    }
+    if (url.pathname === '/api/v1/anime/franchises/release/42') {
+      return Response.json([{
+        id: 'franchise-1',
+        name: 'Франшиза',
+        franchise_releases: [
+          { sort_order: 2, release: { alias: 'second-part', name: { main: 'Вторая часть' } } },
+          { sort_order: 1, release: { alias: 'test-release', name: { main: 'Тест' }, year: 2020 } },
+          { sort_order: 3, release: { alias: 'bad alias!', name: { main: 'Некорректный' } } },
+        ],
+      }]);
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  });
+
+  await expect(source.getRelated!({ alias: 'test-release', id: 42, name: 'Тест', episodes: [] } as any, signal)).resolves.toMatchObject({
+    similar: [{ alias: 'similar-one', name: 'Похожий', year: 2021 }],
+    franchises: [{
+      id: 'franchise-1',
+      name: 'Франшиза',
+      releases: [
+        { alias: 'test-release', name: 'Тест', year: 2020, order: 1 },
+        { alias: 'second-part', name: 'Вторая часть', order: 2 },
+      ],
+    }],
+  });
+});
+
+it('keeps published episode IDs and does not advertise a next episode for a finished season', async () => {
+  const source = createAniLiberty(async (input) => {
+    expect(String(input)).toBe('https://anilibria.top/api/v1/anime/schedule/week');
+    return Response.json({ data: [
+      { release: { alias: 'bad-day', publish_day: { value: 8 } } },
+      {
+        release: { alias: 'weekly-release', name: { main: 'Тайтл недели' }, publish_day: { value: 2 }, poster: { preview: '/images/week.jpg' } },
+        full_season_is_released: false,
+        next_release_episode_number: 8,
+        published_release_episode: { id: 'ep-seven', ordinal: 7, hls_720: validStream },
+      },
+      {
+        release: { alias: 'completed-release', name: { main: 'Завершённый тайтл' }, publish_day: { value: 6 } },
+        full_season_is_released: true,
+        next_release_episode_number: 13,
+      },
+    ] });
+  });
+
+  await expect(source.getSchedule!(new AbortController().signal)).resolves.toEqual([
+    { day: 2, alias: 'weekly-release', name: 'Тайтл недели', poster: 'https://anilibria.top/images/week.jpg', seasonComplete: false, publishedEpisode: { id: 'ep-seven', number: 7 }, nextEpisodeNumber: 8 },
+    { day: 6, alias: 'completed-release', name: 'Завершённый тайтл', seasonComplete: true },
+  ]);
 });
 
 it('joins several genre ids into one comma-separated filter and skips invalid ids', async () => {
@@ -129,70 +198,21 @@ it('normalizes all catalog reference options', async () => {
   });
 });
 
-it('loads similar releases and franchise chronology without duplicates', async () => {
+it('preserves available filter groups on a partial outage and reports a full outage', async () => {
   const signal = new AbortController().signal;
   const source = createAniLiberty(async (input) => {
-    const url = new URL(String(input));
-    if (url.pathname === '/api/v1/anime/releases/test-release') {
-      return Response.json({ id: 42, alias: 'test-release', name: { main: 'Тест' } });
-    }
-    if (url.pathname === '/api/v1/anime/releases/recommended') {
-      expect(Object.fromEntries(url.searchParams)).toEqual({ release_id: '42', limit: '6' });
-      return Response.json([
-        { alias: 'similar-one', name: { main: 'Похожий' }, year: 2021 },
-        { alias: 'test-release', name: { main: 'Тест' } },
-        { alias: 'similar-one', name: { main: 'Дубль' } },
-        { alias: 'bad alias!', name: { main: 'Некорректный' } },
-      ]);
-    }
-    if (url.pathname === '/api/v1/anime/franchises/release/42') {
-      return Response.json([{
-        id: 'franchise-1',
-        name: 'Франшиза',
-        franchise_releases: [
-          { sort_order: 2, release: { alias: 'second-part', name: { main: 'Вторая часть' } } },
-          { sort_order: 1, release: { alias: 'test-release', name: { main: 'Тест' }, year: 2020 } },
-          { sort_order: 3, release: { alias: 'bad alias!', name: { main: 'Некорректный' } } },
-        ],
-      }]);
-    }
-    throw new Error(`Unexpected request: ${url}`);
+    const field = new URL(String(input)).pathname.split('/').pop();
+    if (field === 'age-ratings') return Response.json({}, { status: 503 });
+    return Response.json(field === 'types' ? [{ value: 'TV', description: 'ТВ' }] : []);
+  });
+  const partial = createCombinedSource([source], async () => null);
+  await expect(partial.getCatalogFilters!(signal)).resolves.toMatchObject({
+    types: [{ value: 'TV', label: 'ТВ' }],
+    ageRatings: [],
+    incomplete: true,
   });
 
-  await expect(source.getRelated!({ alias: 'test-release', id: 42, name: 'Тест', episodes: [] } as any, signal)).resolves.toMatchObject({
-    similar: [{ alias: 'similar-one', name: 'Похожий', year: 2021 }],
-    franchises: [{
-      id: 'franchise-1',
-      name: 'Франшиза',
-      releases: [
-        { alias: 'test-release', name: 'Тест', year: 2020, order: 1 },
-        { alias: 'second-part', name: 'Вторая часть', order: 2 },
-      ],
-    }],
-  });
-});
-
-it('keeps published episode IDs and does not advertise a next episode for a finished season', async () => {
-  const source = createAniLiberty(async (input) => {
-    expect(String(input)).toBe('https://anilibria.top/api/v1/anime/schedule/week');
-    return Response.json({ data: [
-      { release: { alias: 'bad-day', publish_day: { value: 8 } } },
-      {
-        release: { alias: 'weekly-release', name: { main: 'Тайтл недели' }, publish_day: { value: 2 }, poster: { preview: '/images/week.jpg' } },
-        full_season_is_released: false,
-        next_release_episode_number: 8,
-        published_release_episode: { id: 'ep-seven', ordinal: 7, hls_720: validStream },
-      },
-      {
-        release: { alias: 'completed-release', name: { main: 'Завершённый тайтл' }, publish_day: { value: 6 } },
-        full_season_is_released: true,
-        next_release_episode_number: 13,
-      },
-    ] });
-  });
-
-  await expect(source.getSchedule!(new AbortController().signal)).resolves.toEqual([
-    { day: 2, alias: 'weekly-release', name: 'Тайтл недели', poster: 'https://anilibria.top/images/week.jpg', seasonComplete: false, publishedEpisode: { id: 'ep-seven', number: 7 }, nextEpisodeNumber: 8 },
-    { day: 6, alias: 'completed-release', name: 'Завершённый тайтл', seasonComplete: true },
-  ]);
+  const unavailable = createAniLiberty(async () => Response.json({}, { status: 503 }));
+  const full = createCombinedSource([unavailable], async () => null);
+  await expect(full.getCatalogFilters!(signal)).rejects.toThrow('Catalog filter references unavailable');
 });

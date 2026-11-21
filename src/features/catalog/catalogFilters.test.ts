@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { hasCatalogFilters } from '../../sources/source';
 import { MAX_GENRES, catalogParams, filterKey, parseCatalogFilters, parseGenreIds, positiveParam } from './catalogFilters';
 
 it('parses repeated and comma-separated genre params, deduplicating invalid ids', () => {
@@ -31,6 +32,20 @@ it('parses all catalog filters from the URL and keeps old year links working', (
   expect(parseCatalogFilters(new URLSearchParams('year=2023&type=TV,OVA, TV'))).toMatchObject({
     yearFrom: 2023, yearTo: 2023, types: ['TV', 'OVA'],
   });
+});
+
+it('ignores unknown filter codes before deciding whether the catalog is filtered', () => {
+  expect(hasCatalogFilters(parseCatalogFilters(new URLSearchParams(
+    'type=UNKNOWN&status=constructor&sort=__proto__&season=UNKNOWN&age=UNKNOWN',
+  )))).toBe(false);
+  expect(parseCatalogFilters(new URLSearchParams('type=UNKNOWN,OVA&type=OVA')).types).toEqual(['OVA']);
+});
+
+it('uses the same year bounds for incoming links and newly applied periods', () => {
+  const parsed = parseCatalogFilters(new URLSearchParams('yearFrom=2010&yearTo=2000'));
+  expect(parsed).toMatchObject({ yearFrom: 2000, yearTo: 2010 });
+  expect(catalogParams('', 1, { yearFrom: 2010, yearTo: 2000 }).toString()).toBe('yearFrom=2000&yearTo=2010');
+  expect(catalogParams('', 1, { ...parsed, yearFrom: undefined }).toString()).toBe('yearTo=2010');
 });
 
 it('serializes filters into stable shareable params and resets the page', () => {

@@ -84,6 +84,9 @@ export function createCombinedSource(sources: readonly AnimeSource[], loadIndex:
     async getCatalogFilters(signal) {
       const sourcesWithFilters = availableSources.filter((source) => source.getCatalogFilters);
       const settled = await Promise.allSettled(sourcesWithFilters.map((source) => source.getCatalogFilters!(signal)));
+      signal.throwIfAborted();
+      const loaded = settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
+      if (loaded.length === 0) throw new Error('Catalog filter references unavailable');
       const genres = new Map<number, string>();
       const years = new Set<number>();
       const options = {
@@ -93,12 +96,11 @@ export function createCombinedSource(sources: readonly AnimeSource[], loadIndex:
         seasons: new Map<string, CatalogOption>(),
         ageRatings: new Map<string, CatalogOption>(),
       };
-      for (const result of settled) {
-        if (result.status !== 'fulfilled') continue;
-        for (const genre of result.value.genres) genres.set(genre.id, genre.name);
-        for (const year of result.value.years) years.add(year);
+      for (const result of loaded) {
+        for (const genre of result.genres) genres.set(genre.id, genre.name);
+        for (const year of result.years) years.add(year);
         for (const key of Object.keys(options) as (keyof typeof options)[]) {
-          for (const option of result.value[key]) options[key].set(option.value, option);
+          for (const option of result[key]) options[key].set(option.value, option);
         }
       }
       return {
@@ -109,6 +111,7 @@ export function createCombinedSource(sources: readonly AnimeSource[], loadIndex:
         sorting: [...options.sorting.values()],
         seasons: [...options.seasons.values()],
         ageRatings: [...options.ageRatings.values()],
+        incomplete: loaded.length < settled.length || loaded.some((result) => result.incomplete) || undefined,
       };
     },
 
