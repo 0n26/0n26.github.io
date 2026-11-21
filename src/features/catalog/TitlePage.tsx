@@ -1,8 +1,8 @@
-import { Alert, Badge, Group, Image, Loader, SimpleGrid, Stack, Text, Title } from '@mantine/core';
-import { useCallback } from 'react';
+import { Alert, Badge, Group, Image, Loader, NativeSelect, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { getSource } from '../../sources';
-import type { AnimeSource, AnimeTitle, Episode, Franchise } from '../../sources/source';
+import type { AnimeSource, AnimeTitle, Episode, Franchise, VoiceOption } from '../../sources/source';
 import { ReleaseCard } from './ReleaseCard';
 import { Player } from '../player/Player';
 import { useSourceRequest } from './useSourceRequest';
@@ -99,10 +99,27 @@ function RelatedSections({ getRelated, title, currentAlias, routePrefix }: {
 }
 
 function TitleContent({ source, alias }: { source: AnimeSource; alias: string }) {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const selectedId = params.get('episode');
-  const load = useCallback((signal: AbortSignal) => source.getTitle(alias, signal), [source, alias]);
+  const [selectedAlias, setSelectedAlias] = useState(alias);
+  const [voices, setVoices] = useState<readonly VoiceOption[]>([]);
+
+  const load = useCallback((signal: AbortSignal) => source.getTitle(selectedAlias, signal), [source, selectedAlias]);
   const request = useSourceRequest(load);
+
+  useEffect(() => {
+    if (request.status === 'ready' && request.data?.voices?.length) {
+      setVoices(request.data.voices);
+    }
+  }, [request]);
+
+  function changeVoice(nextAlias: string) {
+    if (nextAlias === selectedAlias) return;
+    setSelectedAlias(nextAlias);
+    const next = new URLSearchParams(params);
+    next.delete('episode');
+    setParams(next);
+  }
 
   if (request.status === 'loading') {
     return <Group role="status" gap="xs"><Loader size="xs" aria-hidden /> <Text>Загружаем аниме…</Text></Group>;
@@ -124,6 +141,11 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
         <Title order={1}>{title.name}</Title>
         {episode && <Text c="dimmed" size="lg" id="playback-heading">{episodeCaption(episode, currentIndex, title.episodes.length)}</Text>}
       </Group>
+      {voices.length > 1 && (
+        <NativeSelect aria-label="Озвучка" size="md" radius="xl" value={selectedAlias}
+          data={voices.map((voice) => ({ value: voice.alias, label: voice.label ?? voice.source ?? 'Озвучка' }))}
+          onChange={(event) => changeVoice(event.currentTarget.value)} />
+      )}
       <div className={styles.theater}>
         <Playback title={title} episode={episode} sourceKey={source.key} hasSelection={selectedId !== null} />
         {title.episodes.length > 0 && (
