@@ -30,7 +30,8 @@ function Playback({ title, episode, sourceKey, hasSelection }: {
     return <Alert color="gray" title="Видео недоступно">Источник не предоставил видео для этого эпизода.</Alert>;
   }
   const poster = episode.preview ?? title.poster;
-  const episodeKey = JSON.stringify([sourceKey, episode.id]);
+  const [providerKey, originalAlias] = String(sourceKey).split(':');
+  const episodeKey = JSON.stringify([providerKey, originalAlias, episode.id]);
   return <Player key={episodeKey} episodeKey={episodeKey} streams={episode.streams} poster={poster} />;
 }
 
