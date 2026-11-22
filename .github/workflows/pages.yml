@@ -166,6 +166,8 @@ jobs:
           path: dist
   deploy:
     needs: build
+    # Optional release or catalog jobs can be skipped even when build succeeds.
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
