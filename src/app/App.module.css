@@ -88,8 +88,8 @@
 
 @media (max-width: 25rem) {
   .brandName { display: none; }
-  .header .navLink { padding-inline: 0.22rem; font-size: 0.62rem; }
-  .header .profileLink { width: 1.8rem; height: 1.8rem; }
+  .header .navLink { padding-inline: 0.18rem; font-size: 0.6rem; }
+  .header .profileLink { width: 1.8rem; height: 1.8rem; min-width: 1.8rem; }
 }
 
 .page { padding-top: clamp(1.5rem, 4vw, 3rem); }

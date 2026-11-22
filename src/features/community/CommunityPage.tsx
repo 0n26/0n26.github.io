@@ -13,8 +13,9 @@ const sectionLinks = [
   { to: '/community', label: 'Главная' },
   { to: '/profile', label: 'Профиль' },
   { to: '/profile?tab=cards', label: 'Карточки' },
-  { to: '/profile?tab=albums', label: 'Альбомы' },
-  { to: '/profile?tab=badges', label: 'Значки' },
+  { to: '/profile?tab=albums', label: 'Колоды' },
+  { to: '/profile?tab=badges', label: 'Достижения' },
+  { to: '/shop', label: 'Магазин' },
   { to: '/schedule', label: 'Расписание' },
 ];
 

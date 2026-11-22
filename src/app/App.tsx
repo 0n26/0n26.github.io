@@ -13,6 +13,7 @@ const SchedulePage = lazy(() => import('../features/catalog/SchedulePage').then(
 const ChangelogPage = lazy(() => import('../features/changelog/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
 const CommunityPage = lazy(() => import('../features/community/CommunityPage').then(m => ({ default: m.CommunityPage })));
 const ProfilePage = lazy(() => import('../features/community/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const ShopPage = lazy(() => import('../features/community/ShopPage').then(m => ({ default: m.ShopPage })));
 
 export function App() {
   const watch = useMatch('/anime/:source/:alias');
@@ -36,6 +37,7 @@ export function App() {
                 <NavLink to="/" end className={`${styles.navLink} ${styles.secondaryLink}`}>Каталог</NavLink>
                 <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
                 <NavLink to="/community" className={styles.navLink}>Сообщество</NavLink>
+                <NavLink to="/shop" className={styles.navLink}>Магазин</NavLink>
                 <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
               </Group>
             )}
@@ -57,7 +59,7 @@ export function App() {
               <Route path="changelog" element={<ChangelogPage />} />
               <Route path="community" element={<CommunityPage />} />
               <Route path="profile" element={<ProfilePage />} />
-              <Route path="shop" element={<ProfilePage />} />
+              <Route path="shop" element={<ShopPage />} />
               <Route path="user/:handle" element={<ProfilePage />} />
               <Route path="*" element={
                 <Stack align="flex-start">

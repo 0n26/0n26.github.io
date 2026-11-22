@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
   formatCount, formatDate, formatShortDate, levelPercent, presenceTitles, profileTabs,
-  rankColors, rankName, rankTitles, slotTitles, tabTitles,
+  rankColors, rankName, rankTitles, slotTitles, tabIcons, tabTitles,
 } from './logic';
 import type { ProfileTab } from './logic';
 import type {
@@ -206,10 +206,11 @@ export function ProfileTabs({ active, linkFor, counts }: {
   counts?: Partial<Record<ProfileTab, number>>;
 }) {
   return (
-    <nav className={s.tabs} aria-label="Разделы профиля">
+    <nav className={`${s.tabs} ${s.profileNav}`} aria-label="Разделы профиля">
       {profileTabs.map((tab) => (
         <Link key={tab} to={linkFor(tab)} className={`${s.tab} ${active === tab ? s.tabActive : ''}`}
           aria-current={active === tab ? 'page' : undefined}>
+          <span className={s.tabIcon} aria-hidden="true">{tabIcons[tab]}</span>
           {tabTitles[tab]}
           {counts?.[tab] !== undefined && <span className={s.tabCount}>{counts[tab]}</span>}
         </Link>
@@ -219,7 +220,7 @@ export function ProfileTabs({ active, linkFor, counts }: {
 }
 
 export function SupportCard({ to, title, text }: { to?: string; title?: string; text?: string }) {
-  const target = to ?? '/profile?tab=shop';
+  const target = to ?? '/shop';
   return (
     <div className={s.supportCard}>
       <div className={s.eyebrow}>Магазин</div>

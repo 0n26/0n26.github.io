@@ -249,6 +249,20 @@ button:disabled:hover { border-color: var(--community-line); }
 
 .profileShell { min-width: 0; }
 .profileHero { border-radius: 12px; }
+
+/* Боковая навигация профиля: Steam-разделы + игровые категории. */
+.profileLayout {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr) 18rem;
+  gap: 1.1rem;
+  align-items: start;
+}
+.profileMenu { min-width: 0; position: sticky; top: 6rem; }
+.profileNav { flex-direction: column; margin: 0; }
+.profileNav .tab { width: 100%; justify-content: flex-start; }
+.profileNav .tabActive, .profileNav .tabActive:hover { box-shadow: inset 2px 0 0 var(--community-blue); }
+.tabIcon { width: 1.1rem; flex: none; text-align: center; font-size: 0.9rem; }
+
 .profileColumns, .hubGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 19rem;
@@ -755,6 +769,58 @@ button.albumTag:hover:not(:disabled) { border-color: var(--community-gold); }
 .itemDetailRow dt, .itemDetailRow dd { margin: 0; }
 .itemDetailRow > span:first-child, .itemDetailRow dt { color: var(--community-muted); }
 
+/* ---------- Отдельная страница магазина ---------- */
+
+.storeShell { display: grid; gap: 1.1rem; min-width: 0; }
+.storeHero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.6rem;
+  border: 1px solid var(--community-line);
+  border-radius: 12px;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--community-blue) 18%, var(--community-panel)), var(--community-panel));
+}
+.storeTitle {
+  margin: 0.35rem 0 0.55rem;
+  font-family: var(--app-serif);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--community-text);
+}
+.storeLead { max-width: 38rem; margin: 0; color: var(--community-muted); line-height: 1.55; font-size: 0.88rem; }
+.storeHeroActions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+.storeBalance { display: grid; align-content: center; gap: 0.5rem; min-width: 12rem; }
+.storeColumns { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 1.1rem; align-items: start; }
+.storeSide {
+  display: grid;
+  gap: 0.25rem;
+  position: sticky;
+  top: 6rem;
+  padding: 1rem;
+  border: 1px solid var(--community-line);
+  border-radius: 10px;
+  background: var(--community-panel);
+}
+.storeNavLink {
+  padding: 0.45rem 0.55rem;
+  border-radius: 5px;
+  color: var(--community-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.storeNavLink:hover, .storeNavLink[aria-current='page'] {
+  color: var(--community-text);
+  background: color-mix(in srgb, var(--community-blue) 16%, transparent);
+}
+.storeSide .groupTitle { margin-bottom: 0.35rem; }
+.storeSide .hint { margin-top: 0.6rem; }
+.storeMain { min-width: 0; }
+
 /* ---------- Магазин паков ---------- */
 
 .shopIntro { padding: 1rem 1.15rem 0; }
@@ -868,7 +934,11 @@ button.albumTag:hover:not(:disabled) { border-color: var(--community-gold); }
 
 @media (max-width: 1050px) {
   .profileColumns, .hubGrid { grid-template-columns: 1fr; }
+  .profileLayout { grid-template-columns: 10rem minmax(0, 1fr); }
+  .profileSide { grid-column: 1 / -1; }
   .profileSide, .hubSide { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .storeColumns { grid-template-columns: 1fr; }
+  .storeSide { position: static; }
   .openLayout, .inventoryContent { grid-template-columns: 1fr; }
   .itemDetail { max-width: none; }
 }
@@ -880,6 +950,14 @@ button.albumTag:hover:not(:disabled) { border-color: var(--community-gold); }
   .heroActions { grid-column: 1; max-width: none; }
   .heroCaption { display: none; }
   .tab { padding: 0.45rem 0.55rem; font-size: 0.7rem; }
+  .profileLayout { grid-template-columns: 1fr; }
+  .profileMenu { position: static; }
+  .profileNav { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; }
+  .profileNav .tab { width: auto; white-space: nowrap; }
+  .profileNav .tabActive, .profileNav .tabActive:hover { box-shadow: inset 0 -2px 0 var(--community-blue); }
+  .profileSide { grid-column: auto; grid-template-columns: 1fr; }
+  .storeHero { flex-direction: column; align-items: stretch; padding: 1.1rem; }
+  .storeBalance { min-width: 0; }
   .cardGrid, .cardGridCompact, .albumCards { grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); padding: 0.8rem; }
   .panelBody, .cardToolbar, .packGrid, .cosmeticGrid { padding: 0.8rem; }
   .detail { grid-template-columns: 1fr; }
@@ -888,7 +966,7 @@ button.albumTag:hover:not(:disabled) { border-color: var(--community-gold); }
 }
 
 @media (max-width: 420px) {
-  .profileColumns { gap: 0.8rem; }
+  .profileColumns, .profileLayout { gap: 0.8rem; }
   .heroName { font-size: 1.4rem; }
   .heroMeta { gap: 0.2rem 0.6rem; }
   .cardGrid, .cardGridCompact, .albumCards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }

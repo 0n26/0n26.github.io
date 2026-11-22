@@ -1,7 +1,7 @@
 import { Alert, Button, Text } from '@mantine/core';
 import { useCallback, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Link, useLocation, useParams, useSearchParams } from 'react-router';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router';
 import { AppearanceControls } from '../../app/AppearanceControls';
 import { AlbumDetail, AlbumList, CardFiltersBar, CardSetStrip, WatchCardGrid } from './CardGallery';
 import {
@@ -12,11 +12,10 @@ import s from './community.module.css';
 import { demoHandleDefault } from './demoRepository';
 import {
   equipSlots, equippedBonus, filterCards, formatShortDate, groupInventory, itemUpgradeCost,
-  parseProfileTab, pluralCards, rankColors, rankOrder, slotTitles, userRank,
+  parseProfileTab, pluralCards, rankColors, rankIndex, rankOrder, slotTitles, userRank,
 } from './logic';
 import type { CardFilters, ProfileTab } from './logic';
 import { communityRepository } from './repository';
-import { ShopView } from './ShopView';
 import type { EquipSlot, InventoryItem, Rank, UserProfile } from './types';
 import { useAlbumState } from './useAlbumState';
 import { useCollectionState } from './useCollectionState';
@@ -26,18 +25,16 @@ type LinkFor = (tab: ProfileTab) => string;
 
 export function ProfilePage() {
   const { handle } = useParams();
-  const location = useLocation();
   const [params] = useSearchParams();
-  const isShopRoute = location.pathname === '/shop';
-  const active = parseProfileTab(params.get('tab') ?? (isShopRoute ? 'shop' : null));
+  const requestedTab = params.get('tab');
+  const active = parseProfileTab(requestedTab);
   const profileHandle = handle ?? demoHandleDefault;
   const load = useCallback((signal: AbortSignal) => communityRepository.getProfile(profileHandle, signal), [profileHandle]);
   const request = useCommunityRequest(load);
-  const baseLink = handle
-    ? `/user/${encodeURIComponent(handle)}`
-    : isShopRoute ? '/shop' : '/profile';
+  const baseLink = handle ? `/user/${encodeURIComponent(handle)}` : '/profile';
   const linkFor: LinkFor = (tab) => (tab === 'overview' ? baseLink : `${baseLink}?tab=${tab}`);
 
+  if (requestedTab === 'shop') return <Navigate to="/shop" replace />;
   if (request.status === 'loading') return <Text role="status">Загружаем профиль…</Text>;
   if (request.status === 'error' || !request.data) {
     return <Alert role="alert" color="red" title="Профиль недоступен">Попробуйте открыть страницу позже.</Alert>;
@@ -54,6 +51,8 @@ function ProfileContent({ profile, active, linkFor }: { profile: UserProfile; ac
   const shownCards = useMemo(() => filterCards(collection.cards, filters), [collection.cards, filters]);
   const rank = userRank(profile.level);
   const bonuses = equippedBonus(collection.inventory, collection.state.equipped);
+  const totalPower = useMemo(() => collection.cards.reduce((sum, card) => sum + card.power, 0), [collection.cards]);
+  const topRankCards = useMemo(() => collection.cards.filter((card) => rankIndex(card.rank) <= 2).length, [collection.cards]);
 
   const cardActions = {
     onSharpen: collection.sharpenCard,
@@ -70,16 +69,18 @@ function ProfileContent({ profile, active, linkFor }: { profile: UserProfile; ac
   return (
     <div className={s.profileShell}>
       <ProfileHeader profile={profile} linkFor={linkFor} rankTitle={rank.short} />
-      <ProfileTabs active={active} linkFor={linkFor} counts={{
-        cards: collection.cards.length,
-        albums: albumsState.albums.length,
-        badges: profile.badges.length,
-        inventory: collection.inventory.length,
-        friends: profile.friends.length,
-        history: profile.history.length,
-      }} />
+      <div className={s.profileLayout}>
+        <aside className={s.profileMenu} aria-label="Навигация профиля">
+          <ProfileTabs active={active} linkFor={linkFor} counts={{
+            cards: collection.cards.length,
+            albums: albumsState.albums.length,
+            badges: profile.badges.length,
+            inventory: collection.inventory.length,
+            friends: profile.friends.length,
+            history: profile.history.length,
+          }} />
+        </aside>
 
-      <div className={s.profileColumns}>
         <div className={s.profileMain}>
           {active === 'overview' && (
             <Overview profile={profile} linkFor={linkFor} albumsState={albumsState}
@@ -132,13 +133,6 @@ function ProfileContent({ profile, active, linkFor }: { profile: UserProfile; ac
 
           {active === 'history' && <HistoryView profile={profile} />}
 
-          {active === 'shop' && (
-            <ShopView collectionState={collection.state} diamonds={collection.diamonds}
-              dust={collection.dust} pity={collection.state.pity}
-              packHistory={collection.state.packHistory} inventory={collection.inventory}
-              openPacks={collection.openPacks} buyCosmetic={collection.buyCosmetic} />
-          )}
-
           {active === 'settings' && (
             <SettingsView profile={profile} albumsCount={albumsState.albums.length}
               onResetAlbums={albumsState.reset} onResetCollection={collection.reset} />
@@ -146,6 +140,15 @@ function ProfileContent({ profile, active, linkFor }: { profile: UserProfile; ac
         </div>
 
         <div className={s.profileSide}>
+          <Panel title="Сила коллекции" subtitle="Сумма заточки, копий и редких карточек.">
+            <div className={s.statGrid}>
+              <Stat value={formatCount(collection.cards.length)} label="Карточек" />
+              <Stat value={formatCount(totalPower)} label="Суммарная сила" />
+              <Stat value={formatCount(topRankCards)} label="Ранга A и выше" />
+              <Stat value={formatCount(albumsState.albums.length)} label="Колод" />
+            </div>
+          </Panel>
+
           <Panel title="Ранг профиля" subtitle="Считается по уровню, а не по XP внутри уровня.">
             <div className={s.rankPanel}>
               <div className={s.rankCrest} aria-hidden="true">{rank.short.slice(0, 1)}</div>
@@ -169,7 +172,7 @@ function ProfileContent({ profile, active, linkFor }: { profile: UserProfile; ac
 
           <Panel title="Кошелёк" subtitle="Алмазы и пыль приходят из паков и переплавки дублей.">
             <Wallet diamonds={collection.diamonds} dust={collection.dust} />
-            <Link className={s.panelLink} to={linkFor('shop')}>Открыть магазин →</Link>
+            <Link className={s.panelLink} to="/shop">Открыть магазин →</Link>
           </Panel>
 
           <Panel title="Статистика">
@@ -189,7 +192,7 @@ function ProfileContent({ profile, active, linkFor }: { profile: UserProfile; ac
           <Panel title="Группы" action={<Link className={s.panelLink} to="/community">Все →</Link>} flush>
             <GroupList groups={profile.groups.slice(0, 3)} />
           </Panel>
-          <SupportCard to={linkFor('shop')} />
+          <SupportCard to="/shop" />
         </div>
       </div>
     </div>
@@ -235,8 +238,8 @@ function ProfileHeader({ profile, linkFor, rankTitle }: {
         </div>
         <div className={s.heroActions}>
           <Button component={Link} to={linkFor('cards')} size="sm" variant="light">Карточки</Button>
+          <Button component={Link} to={linkFor('albums')} size="sm" variant="light">Колоды</Button>
           <Button component={Link} to={linkFor('inventory')} size="sm" variant="light">Инвентарь</Button>
-          <Button component={Link} to={linkFor('shop')} size="sm" variant="light">Магазин</Button>
         </div>
       </div>
     </div>
@@ -295,7 +298,7 @@ function Overview({ profile, linkFor, albumsState, collection, cardActions }: {
 }) {
   return (
     <>
-      <Panel title="Витрина профиля" subtitle="Экипировка видна всем, кто откроет вашу страницу."
+      <Panel title="Экипировка" subtitle="Предметы видны всем, кто откроет вашу страницу."
         action={<Link className={s.panelLink} to={linkFor('inventory')}>Изменить →</Link>}>
         <EquippedShowcase items={collection.inventory} equipped={collection.state.equipped} />
       </Panel>

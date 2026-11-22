@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addCardToAlbum, addCardToNewAlbum, albumsWithCard, cardPower, createAlbum, deleteAlbum,
   dustForRank, filterCards, formatCount, groupInventory, levelPercent, nextMeltRank, parseProfileTab,
-  pluralCards, pluralPacks, rankName, rankOrder, removeCardFromAlbum, renameAlbum, rollPackRanks,
+  pluralCards, pluralPacks, profileTabs, rankName, rankOrder, removeCardFromAlbum, renameAlbum, rollPackRanks,
   sharpenCost, userRank,
 } from './logic';
 import type { Album, InventoryItem, ShopPack, WatchCard } from './types';
@@ -33,7 +33,8 @@ const testPack: ShopPack = {
 describe('profile tabs', () => {
   it('returns known tabs and falls back to overview', () => {
     expect(parseProfileTab('inventory')).toBe('inventory');
-    expect(parseProfileTab('shop')).toBe('shop');
+    expect(profileTabs).not.toContain('shop');
+    expect(parseProfileTab('shop')).toBe('overview');
     expect(parseProfileTab('cards')).toBe('cards');
     expect(parseProfileTab('albums')).toBe('albums');
     expect(parseProfileTab('unknown')).toBe('overview');

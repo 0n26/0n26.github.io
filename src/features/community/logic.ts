@@ -4,7 +4,7 @@ import type {
 } from './types';
 
 export const profileTabs = [
-  'overview', 'cards', 'albums', 'badges', 'inventory', 'friends', 'history', 'shop', 'settings',
+  'overview', 'cards', 'albums', 'inventory', 'badges', 'friends', 'history', 'settings',
 ] as const;
 export type ProfileTab = typeof profileTabs[number];
 
@@ -12,12 +12,22 @@ export const tabTitles: Record<ProfileTab, string> = {
   overview: 'Обзор',
   cards: 'Карточки',
   albums: 'Колоды',
-  badges: 'Достижения',
   inventory: 'Инвентарь',
+  badges: 'Достижения',
   friends: 'Друзья',
   history: 'История',
-  shop: 'Магазин',
   settings: 'Настройки',
+};
+
+export const tabIcons: Record<ProfileTab, string> = {
+  overview: '◈',
+  cards: '▣',
+  albums: '❑',
+  inventory: '🎒',
+  badges: '★',
+  friends: '☺',
+  history: '◷',
+  settings: '⚙',
 };
 
 export function parseProfileTab(value: string | null | undefined): ProfileTab {
