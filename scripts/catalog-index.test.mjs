@@ -92,6 +92,37 @@ it('groups unique title and year matches across full sweeps, keeping ambiguous a
   expect(index.releases).toHaveLength(left.length + right.length - 1);
 });
 
+it('matches formatting variants without dropping season or release markers', async () => {
+  const { left, right, fetcher } = fixture();
+  left[0].name.english = '[Oshi no Ko] 3rd Season';
+  right[0].title = 'Звёздное дитя (третий сезон) / Oshi no Ko 3rd Season [1-11 из 11]';
+  left[1].name.english = 'W&#039;z';
+  right[1].title = String.raw`Уиз / W\'z`;
+  left[2].name.english = 'Fruits Basket: 2nd Season';
+  right[2].title = 'Fruits Basket 1st Season';
+  left[3].name.english = 'Hero (OVA)';
+  right[3].title = 'Hero (Movie)';
+  left[4].name.main = 'Тёмный дворецкий';
+  right[4].title = 'Темный дворецкий';
+  left[5].name.english = '[Oshi no Ko] 3rd Season!';
+  right[5].title = 'Another Oshi no Ko';
+  left[5].year = 2023;
+  Object.assign(left[6], {
+    alias: 'senyuu-istinno-geroyskiy-fayt',
+    name: { main: 'Истинно геройский файт', english: 'Senyuu [TV1-TV2]' },
+    episodes_total: 26,
+  });
+  Object.assign(right[6], { id: 143, title: 'Истинно геройский файт. / Senyuu. [1-13 из 13]' });
+
+  await publishCatalogIndex(output, fetcher);
+
+  const { releases } = JSON.parse(readFileSync(output, 'utf8'));
+  expect(releases.filter((group) => group.length > 1).map((group) => group.map(({ alias }) => alias)))
+    .toEqual([['aniliberty:left-1', 'animevost:1'], ['aniliberty:left-2', 'animevost:2'], ['aniliberty:left-5', 'animevost:5']]);
+  expect(releases.find(([entry]) => entry.alias === 'aniliberty:left-2')?.map(({ alternateName }) => alternateName))
+    .toEqual(["W'z", "W'z"]);
+});
+
 it('automatically pairs the full Fate slash titles without collapsing distinct releases', async () => {
   const { left, right, fetcher } = fixture();
   const matches = [

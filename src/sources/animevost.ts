@@ -1,5 +1,5 @@
 import type { AnimeSource, CatalogEntry, Episode } from './source';
-import { positiveInteger, record, text } from './values.ts';
+import { positiveInteger, record, text, titleText } from './values.ts';
 
 const API = 'https://api.animetop.info/v1';
 const PAGE_SIZE = 24;
@@ -22,7 +22,7 @@ function asset(value: unknown, hosts: readonly string[], path: RegExp): URL | un
 }
 
 function splitTitle(value: unknown): { name: string; alternateName?: string } {
-  const title = text(value)?.replace(
+  const title = titleText(value)?.replace(
     /(?:\s*\[(?:(?:(?:OVA|ОВА|SP|спешл)\s+)?\d+(?:-\d+)?\s+из\s+\d+\+?|TV|спешл|\d+\s+серия\s+-\s+[^\[\]]+)\])+$/iu, '',
   );
   if (!title) return { name: '' };

@@ -35,6 +35,11 @@ const providers = {
 // Matched by provider IDs where the release names, years, or episode boundaries disagree.
 const curatedReleases = [
   [['aniliberty:ao-no-hako-2nd-season'], ['animevost:3996']],
+  [['aniliberty:aoashi'], ['animevost:2780']],
+  [['aniliberty:aoashi-season-2'], ['animevost:4010']],
+  [['aniliberty:sakura-sou-no-pet-na-kanojo'], ['animevost:252']],
+  // AniLiberty has both TV seasons (26 episodes); AnimeVost 143 has only the first (13).
+  [['aniliberty:senyuu-istinno-geroyskiy-fayt']],
   [['aniliberty:fatestrange-fake'], ['animevost:3410']],
   [['aniliberty:jujutsu-kaisen-0-movie'], ['animevost:2879']],
   [['aniliberty:jujutsu-kaisen-season-2'], ['animevost:3014']],
@@ -133,7 +138,8 @@ async function sweep(provider, fetcher, signal) {
 function nameKeys({ year, name, alternateName }) {
   if (!year) return [];
   return [name, alternateName].flatMap((value) => {
-    const normalized = value?.normalize('NFKC').toLowerCase().replace(/\s+/gu, ' ').trim();
+    const normalized = value?.normalize('NFKC').toLowerCase().replace(/ё/g, 'е')
+      .replace(/['’]/g, '').replace(/[\s\p{Pd}()[\]{}:;,.!?«»"“”]+/gu, ' ').trim();
     return normalized ? [`${year}:${normalized}`] : [];
   });
 }
