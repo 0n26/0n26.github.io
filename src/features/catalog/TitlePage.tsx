@@ -1,8 +1,10 @@
 import { Alert, Group, Image, Loader, NativeSelect, Stack, Text, Title } from '@mantine/core';
 import { useCallback, useEffect } from 'react';
 import { Link, useHref, useLocation, useParams, useSearchParams } from 'react-router';
-import { defaultSource, getSource } from '../../sources';
-import type { AnimeSource, EpisodeRange, VoiceOption } from '../../sources/source';
+import { catalog } from '../../catalog';
+import type { TitleAccess, VoiceOption } from '../../catalog/catalog';
+import { parseVoiceAlias } from '../../catalog/titleRef';
+import type { EpisodeRange } from '../../sources/source';
 import { Playback } from './Playback';
 import { RelatedSections } from './RelatedSections';
 import { useSourceRequest } from './useSourceRequest';
@@ -11,7 +13,7 @@ import { EpisodeNavigation, episodeCaption } from './EpisodeNavigation';
 import { rangeContains, voiceEpisodeIndex, voiceEpisodeNumber } from './voiceEpisodes';
 import styles from './TitlePage.module.css';
 
-function useTitleRequest(source: AnimeSource, alias: string | null) {
+function useTitleRequest(source: TitleAccess, alias: string | null) {
   const load = useCallback(async (signal: AbortSignal) => {
     // Let StrictMode cancel its probe effect before issuing a network request.
     await Promise.resolve();
@@ -41,24 +43,21 @@ function VoiceStartLinks({ options, params }: { options: readonly VoiceOption[];
   );
 }
 
-const qualifiedAlias = /^(?!group:)[^:]+:.+$/;
-
-function TitleContent({ source, alias }: { source: AnimeSource; alias: string }) {
+function TitleContent({ source, sourceKey, alias }: { source: TitleAccess; sourceKey: string; alias: string }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const href = useHref(location);
-  const combined = source.key === defaultSource.key;
-  const voice = combined ? params.get('voice') : null;
+  const voice = source.getVoices ? params.get('voice') : null;
   const selectedId = params.get('episode');
 
-  const locator = voice === null || qualifiedAlias.test(voice) ? voice ?? alias : null;
+  const locator = voice === null || parseVoiceAlias(voice) ? voice ?? alias : null;
   const request = useTitleRequest(source, locator);
   const title = request.status === 'ready' ? request.data : null;
   const loadVoices = useCallback(async (signal: AbortSignal) => {
     await Promise.resolve();
     return signal.aborted ? [] : (source.getVoices?.(alias, signal) ?? []);
   }, [source, alias]);
-  const voicesRequest = useSourceRequest(combined ? loadVoices : null);
+  const voicesRequest = useSourceRequest(source.getVoices ? loadVoices : null);
   const indexedVoices = voicesRequest.status === 'ready' ? voicesRequest.data : undefined;
 
   const switchFrom = location.state?.voiceEpisodeNumber;
@@ -86,7 +85,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
   }
   if (!title) {
     const alternatives = indexedVoices?.filter((option) => option.alias !== voice);
-    const legacyFallback = voice !== null && locator !== null && voice !== alias && qualifiedAlias.test(alias)
+    const legacyFallback = voice !== null && locator !== null && voice !== alias && parseVoiceAlias(alias)
       && voicesRequest.status !== 'loading' && !alternatives?.length;
     const recovery = alternatives?.length ? <VoiceStartLinks options={alternatives} params={params} />
       : legacyFallback ? <Link to={`?${voiceParams(params, alias)}`}>Вернуться к исходной озвучке</Link> : null;
@@ -109,8 +108,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
   const starts = voices?.filter((option, _, siblings) => {
     if (option === currentVoice || !option.episodeRange) return false;
     if (ordinal === undefined) return true;
-    const provider = option.alias.slice(0, option.alias.indexOf(':') + 1);
-    return siblings.some((other) => other !== option && other.alias.startsWith(provider));
+    return siblings.some((other) => other !== option && other.sourceKey === option.sourceKey);
   });
 
   function changeVoice(nextAlias: string) {
@@ -137,7 +135,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
       )}
       {starts && starts.length > 0 && <VoiceStartLinks options={starts} params={params} />}
       <div className={styles.theater}>
-        <Playback title={title} episode={episode} sourceKey={source.key} hasSelection={selectedId !== null} rangeMismatch={rangeMismatch} />
+        <Playback title={title} episode={episode} hasSelection={selectedId !== null} rangeMismatch={rangeMismatch} />
         {title.episodes.length > 0 && (
           <EpisodeNavigation key={episode?.id ?? selectedId} episodes={title.episodes} currentIndex={currentIndex} voice={voice} />
         )}
@@ -169,7 +167,7 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
         <RelatedSections
           getRelated={source.getRelated}
           title={title}
-          routePrefix={`/anime/${encodeURIComponent(source.key)}`}
+          sourceKey={sourceKey}
         />
       )}
     </Stack>
@@ -177,9 +175,9 @@ function TitleContent({ source, alias }: { source: AnimeSource; alias: string })
 }
 
 export function TitlePage() {
-  const { source: key, alias } = useParams<'source' | 'alias'>();
-  const source = key ? getSource(key) : undefined;
-  return source && alias
-    ? <TitleContent key={`${source.key}/${alias}`} source={source} alias={alias} />
+  const { source: sourceKey, alias } = useParams<'source' | 'alias'>();
+  const source = sourceKey ? catalog.getTitleAccess(sourceKey) : undefined;
+  return source && sourceKey && alias
+    ? <TitleContent key={`${sourceKey}/${alias}`} source={source} sourceKey={sourceKey} alias={alias} />
     : <Alert color="red" title="Источник не найден">Проверьте ссылку или выберите аниме в каталоге.</Alert>;
 }

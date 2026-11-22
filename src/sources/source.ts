@@ -3,12 +3,6 @@ export interface EpisodeRange {
   count: number;
 }
 
-export interface VoiceOption {
-  source: string;
-  alias: string;
-  episodeRange?: EpisodeRange;
-}
-
 export interface CatalogEntry {
   alias: string;
   name: string;
@@ -109,13 +103,14 @@ export interface RelatedInfo {
   franchises?: readonly Franchise[];
 }
 
+/** One external provider. Aliases are local to the provider; the catalog owns cross-provider links. */
 export interface AnimeSource {
   key: string;
   name: string;
   getCatalog(query: string, page: number, signal: AbortSignal, filters?: CatalogFilters): Promise<CatalogResult>;
   getCatalogFilters?(signal: AbortSignal): Promise<CatalogFilterOptions>;
   getSchedule?(signal: AbortSignal): Promise<readonly ScheduleEntry[]>;
+  /** Returns null for a missing title; transport or parsing failures reject. */
   getTitle(alias: string, signal: AbortSignal): Promise<AnimeTitle | null>;
-  getVoices?(alias: string, signal: AbortSignal): Promise<readonly VoiceOption[]>;
   getRelated?(title: AnimeTitle, signal: AbortSignal): Promise<RelatedInfo>;
 }

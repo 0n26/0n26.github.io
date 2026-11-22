@@ -2,11 +2,13 @@ import { ActionIcon, Alert, Button, Chip, Drawer, Group, Loader, MultiSelect, Nu
 import { useCallback, useMemo, useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { useSearchParams } from 'react-router';
-import { defaultSource } from '../../sources';
+import { catalog } from '../../catalog';
+import { catalogSourceKey } from '../../catalog/titleRef';
 import { hasCatalogFilters } from '../../sources/source';
-import type { AnimeSource, CatalogFilters, CatalogOption } from '../../sources/source';
+import type { CatalogFilters, CatalogOption } from '../../sources/source';
 import { MAX_GENRES, catalogParams, filterKey, parseCatalogFilters } from './catalogFilters';
 import { ReleaseCard } from './ReleaseCard';
+import { titleHref } from './titleLinks';
 import { useSourceRequest } from './useSourceRequest';
 import styles from './Catalog.module.css';
 
@@ -14,10 +16,8 @@ type MultiField = 'types' | 'publishStatuses' | 'seasons' | 'ageRatings';
 
 export function CatalogPage() {
   const [params, setParams] = useSearchParams();
-  const source = defaultSource;
   const query = params.get('q')?.trim() ?? '';
   const page = positivePage(params.get('page'));
-  const getFilters = source.getCatalogFilters;
   const filtersKey = filterKey(params);
   const filters = useMemo(() => parseCatalogFilters(new URLSearchParams(filtersKey)), [filtersKey]);
 
@@ -47,12 +47,10 @@ export function CatalogPage() {
             </ActionIcon>}
           />
         </form>
-        {source && getFilters && (
-          <CatalogFilterFields key={`${source.key}:${filtersKey}`} load={getFilters} filters={filters}
-            apply={(next) => changeCatalog(query, 1, next)} />
-        )}
+        <CatalogFilterFields key={filtersKey} filters={filters}
+          apply={(next) => changeCatalog(query, 1, next)} />
       </div>
-      <CatalogResults source={source} query={query} page={page} filters={filters} changePage={(next) => changeCatalog(query, next)} />
+      <CatalogResults query={query} page={page} filters={filters} changePage={(next) => changeCatalog(query, next)} />
     </Stack>
   );
 }
@@ -62,14 +60,13 @@ function positivePage(value: string | null): number {
   return value && /^[1-9]\d*$/.test(value) && Number.isSafeInteger(number) ? number : 1;
 }
 
-function CatalogFilterFields({ load, filters, apply }: {
-  load: NonNullable<AnimeSource['getCatalogFilters']>;
+function CatalogFilterFields({ filters, apply }: {
   filters: CatalogFilters;
   apply: (filters: CatalogFilters) => void;
 }) {
   const [opened, setOpened] = useState(false);
   const [selected, setSelected] = useState<CatalogFilters>(filters);
-  const request = useSourceRequest(load);
+  const request = useSourceRequest(catalog.getCatalogFilters);
   const options = request.status === 'ready' ? request.data : undefined;
   const genreNames = new Map<number, string>(options?.genres.map(({ id, name }) => [id, name] as const) ?? []);
   const optionNames = useMemo(() => ({
@@ -260,16 +257,14 @@ function OptionChips({ label, description, options, value, onChange }: {
   );
 }
 
-function CatalogResults({ source, query, page, filters, changePage }: {
-  source: AnimeSource;
+function CatalogResults({ query, page, filters, changePage }: {
   query: string;
   page: number;
   filters: CatalogFilters;
   changePage: (page: number) => void;
 }) {
-  const load = useCallback((signal: AbortSignal) => source.getCatalog(query, page, signal, filters), [source, query, page, filters]);
+  const load = useCallback((signal: AbortSignal) => catalog.getCatalog(query, page, signal, filters), [query, page, filters]);
   const request = useSourceRequest(load);
-  const routePrefix = `/anime/${encodeURIComponent(source.key)}`;
 
   return (
     <>
@@ -299,7 +294,7 @@ function CatalogResults({ source, query, page, filters, changePage }: {
           ) : (
             <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 5, lg: 6 }} spacing={{ base: 'sm', sm: 'md' }} verticalSpacing="lg">
               {request.data.items.map((entry) => (
-                <ReleaseCard key={entry.alias} to={`${routePrefix}/${encodeURIComponent(entry.alias)}`} entry={entry} />
+                <ReleaseCard key={entry.alias} to={titleHref(catalogSourceKey, entry.alias)} entry={entry} />
               ))}
             </SimpleGrid>
           )}

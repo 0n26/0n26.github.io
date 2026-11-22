@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { createAniLiberty } from './aniliberty';
-import { createCombinedSource } from './combined';
+import { createCatalog } from '../catalog/catalog';
 
 const validStream = 'https://example.com/720.m3u8?token=keep';
 
@@ -319,14 +319,14 @@ it('preserves available filter groups on a partial outage and reports a full out
     if (field === 'age-ratings') return Response.json({}, { status: 503 });
     return Response.json(field === 'types' ? [{ value: 'TV', description: 'ТВ' }] : []);
   });
-  const partial = createCombinedSource([source], async () => null);
-  await expect(partial.getCatalogFilters!(signal)).resolves.toMatchObject({
+  const partial = createCatalog([source], async () => null);
+  await expect(partial.getCatalogFilters(signal)).resolves.toMatchObject({
     types: [{ value: 'TV', label: 'ТВ' }],
     ageRatings: [],
     incomplete: true,
   });
 
   const unavailable = createAniLiberty(async () => Response.json({}, { status: 503 }));
-  const full = createCombinedSource([unavailable], async () => null);
-  await expect(full.getCatalogFilters!(signal)).rejects.toThrow('Catalog filter references unavailable');
+  const full = createCatalog([unavailable], async () => null);
+  await expect(full.getCatalogFilters(signal)).rejects.toThrow('Catalog filter references unavailable');
 });
