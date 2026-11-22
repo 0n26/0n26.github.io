@@ -1,12 +1,12 @@
 .shell {
   min-height: 100vh;
-  background: radial-gradient(ellipse at top right, #292139 0%, transparent 48%) no-repeat, #14141a;
+  background: radial-gradient(ellipse at top right, #1d3e58 0%, transparent 48%) no-repeat, #101c28;
   background-size: 100% 40rem;
 }
 
 .header {
-  background: #19171f;
-  border-bottom-color: #302939;
+  background: linear-gradient(180deg, #1c3348, #162838);
+  border-bottom-color: #2c4a61;
 }
 
 .brand {
@@ -23,17 +23,33 @@
 }
 
 .navLink {
-  color: var(--mantine-color-gray-4);
+  color: #b9cfdf;
   text-decoration: none;
   font-size: var(--mantine-font-size-sm);
+  font-weight: 650;
   padding: 0.5rem 0.625rem;
-  border-radius: var(--mantine-radius-md);
+  border-radius: var(--mantine-radius-sm);
 }
 
 .navLink[aria-current='page'], .navLink:hover {
-  background: #392b32;
-  color: #ffd27c;
+  background: #2d6e9d;
+  color: #fff;
 }
+
+.profileLink {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  border: 1px solid #4d87ac;
+  border-radius: var(--mantine-radius-sm);
+  background: linear-gradient(140deg, #f6b64d, #e05f85);
+  font-size: 1.1rem;
+  text-decoration: none;
+}
+
+.profileLink:hover { box-shadow: 0 0 0 2px rgba(100, 185, 234, 0.4); }
 
 @media (max-width: 25rem) {
   .brandName {
@@ -71,5 +87,5 @@
   gap: 0.5rem;
   margin-top: 3rem;
   padding: 1rem 0;
-  border-top: 1px solid #302939;
+  border-top: 1px solid #2c4a61;
 }

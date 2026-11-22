@@ -10,6 +10,8 @@ import styles from './App.module.css';
 const TitlePage = lazy(() => import('../features/catalog/TitlePage').then(m => ({ default: m.TitlePage })));
 const SchedulePage = lazy(() => import('../features/catalog/SchedulePage').then(m => ({ default: m.SchedulePage })));
 const ChangelogPage = lazy(() => import('../features/changelog/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
+const CommunityPage = lazy(() => import('../features/community/CommunityPage').then(m => ({ default: m.CommunityPage })));
+const ProfilePage = lazy(() => import('../features/community/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 export function App() {
   const watch = useMatch('/anime/:source/:alias');
@@ -32,9 +34,13 @@ export function App() {
               <Group component="nav" aria-label="Основная навигация" gap={4} wrap="nowrap">
                 <NavLink to="/" end className={`${styles.navLink} ${styles.secondaryLink}`}>Каталог</NavLink>
                 <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
+                <NavLink to="/community" className={styles.navLink}>Сообщество</NavLink>
                 <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
               </Group>
             )}
+            <Link to="/profile" className={styles.profileLink} aria-label="Мой профиль" title="Мой профиль">
+              <span aria-hidden="true">🦉</span>
+            </Link>
           </Group>
         </Container>
       </AppShell.Header>
@@ -47,6 +53,9 @@ export function App() {
               <Route path="anime/:source/:alias" element={<TitlePage />} />
               <Route path="schedule" element={<SchedulePage />} />
               <Route path="changelog" element={<ChangelogPage />} />
+              <Route path="community" element={<CommunityPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="user/:handle" element={<ProfilePage />} />
               <Route path="*" element={
                 <Stack align="flex-start">
                   <Title order={1}>Страница не найдена</Title>
