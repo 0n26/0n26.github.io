@@ -1,19 +1,19 @@
 .shell {
   min-height: 100vh;
-  background: radial-gradient(ellipse at top right, #292139 0%, transparent 48%) no-repeat, #14141a;
+  background: radial-gradient(ellipse at top right, var(--app-glow) 0%, transparent 48%) no-repeat, var(--mantine-color-body);
   background-size: 100% 40rem;
 }
 
 .header {
-  background: #19171f;
-  border-bottom-color: #302939;
+  background: var(--mantine-color-default);
+  border-bottom-color: var(--mantine-color-default-border);
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--mantine-color-white);
+  color: var(--mantine-color-text);
   text-decoration: none;
   line-height: 1.1;
 }
@@ -23,20 +23,50 @@
 }
 
 .navLink {
-  color: var(--mantine-color-gray-4);
+  color: var(--mantine-color-dimmed);
   text-decoration: none;
   font-size: var(--mantine-font-size-sm);
   padding: 0.5rem 0.625rem;
   border-radius: var(--mantine-radius-md);
 }
 
-.navLink[aria-current='page'], .navLink:hover {
-  background: #392b32;
-  color: #ffd27c;
+.header .navLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.themeButton {
+  flex: none;
+  min-height: 2.75rem;
+  padding-inline: 0.625rem;
+}
+
+.navLink:hover {
+  background: var(--mantine-color-default-hover);
+  color: var(--mantine-color-text);
+}
+
+.navLink[aria-current='page'] {
+  background: var(--mantine-primary-color-light);
+  color: var(--mantine-primary-color-light-color);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.brand:focus-visible, .navLink:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
+@media (max-width: $mantine-breakpoint-sm) {
+  .brandName {
+    display: none;
+  }
 }
 
 @media (max-width: 25rem) {
-  .brandName {
+  .header .catalogLink {
     display: none;
   }
 
@@ -46,11 +76,7 @@
 }
 
 @media (max-width: $mantine-breakpoint-xs) {
-  .catalogHeader .brandName {
-    display: inline;
-  }
-
-  .catalogHeader .secondaryLink, .aboutLink {
+  .catalogHeader .catalogLink, .catalogHeader .secondaryLink, .header .aboutLink {
     display: none;
   }
 
@@ -71,5 +97,5 @@
   gap: 0.5rem;
   margin-top: 3rem;
   padding: 1rem 0;
-  border-top: 1px solid #302939;
+  border-top: 1px solid var(--mantine-color-default-border);
 }

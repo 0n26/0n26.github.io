@@ -4,8 +4,6 @@
   width: 100%;
   min-width: 0;
   overflow: hidden;
-  background: #111015;
-  color: #faf7fc;
 }
 
 .player:focus-visible {
@@ -17,6 +15,7 @@
   position: relative;
   aspect-ratio: 16 / 9;
   background: var(--mantine-color-black);
+  color: var(--mantine-color-dark-0);
 }
 
 .video,
@@ -47,11 +46,10 @@
 }
 
 .error {
-  background: #100d15ed;
+  background: color-mix(in srgb, var(--mantine-color-dark-8) 93%, transparent);
 }
 
 .feedback {
-  color: white;
   pointer-events: none;
 }
 
@@ -71,7 +69,7 @@
 .feedback > :last-child {
   padding: 0.25rem 0.6rem;
   border-radius: 1rem;
-  background: #111015e6;
+  background: color-mix(in srgb, var(--mantine-color-dark-8) 90%, transparent);
 }
 
 .controls {
@@ -148,7 +146,7 @@
     .controls {
       align-self: end;
       padding: 0.75rem 1rem 0.25rem;
-      background: linear-gradient(transparent, #0a090de6 42%);
+      background: linear-gradient(transparent, color-mix(in srgb, var(--mantine-color-default) 96%, transparent) 42%);
     }
 
     .player[data-playing]:not(:hover):not(:focus-within) .controls {

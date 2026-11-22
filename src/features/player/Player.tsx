@@ -387,7 +387,7 @@ export function Player({ episodeKey, streams, poster }: PlayerProps) {
                   onChange={(event) => {
                     if (video) video.defaultPlaybackRate = video.playbackRate = Number(event.currentTarget.value);
                   }} />
-                <Button size="sm" variant={enhanced ? 'light' : 'default'} color="yellow"
+                <Button size="sm" variant={enhanced ? 'light' : 'default'}
                   aria-label="Улучшение Anime4K" aria-pressed={enhanced} disabled={!!mediaError}
                   onClick={() => {
                     setEnhancementNotice(undefined);
