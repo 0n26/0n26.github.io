@@ -5,6 +5,8 @@ import type { ProfileTab } from './logic';
 import type { ActivityItem, CommunityGroup, FavoriteTitle, Friend, Presence, ProfileBadge } from './types';
 import s from './community.module.css';
 
+export { formatDate, formatShortDate } from './logic';
+
 const palettes: readonly (readonly [string, string])[] = [
   ['#2f6d92', '#412f73'], ['#7a3d5e', '#263b70'], ['#376b5f', '#283a63'],
   ['#715032', '#51304c'], ['#3c4c87', '#6a3262'], ['#335f74', '#4b3a86'],
@@ -15,8 +17,9 @@ function palette(seed: string): readonly [string, string] {
   return palettes[sum % palettes.length];
 }
 
-export function Panel({ title, action, flush, children }: {
+export function Panel({ title, subtitle, action, flush, children }: {
   title: string;
+  subtitle?: string;
   action?: ReactNode;
   flush?: boolean;
   children: ReactNode;
@@ -24,7 +27,10 @@ export function Panel({ title, action, flush, children }: {
   return (
     <section className={s.panel}>
       <div className={s.panelHeader}>
-        <h2 className={s.panelTitle}>{title}</h2>
+        <div className={s.panelHeading}>
+          <h2 className={s.panelTitle}>{title}</h2>
+          {subtitle && <p className={s.panelSubtitle}>{subtitle}</p>}
+        </div>
         {action}
       </div>
       <div className={flush ? undefined : s.panelBody}>{children}</div>
@@ -40,7 +46,10 @@ export function Poster({ name, src, rating }: { name: string; src?: string; rati
   const [from, to] = palette(name);
   return (
     <div className={s.poster} style={{ '--poster-from': from, '--poster-to': to } as CSSProperties}>
-      {src ? <img src={src} alt="" loading="lazy" decoding="async" /> : <span aria-hidden="true">{name.slice(0, 1)}</span>}
+      {src
+        ? <img src={src} alt="" loading="lazy" decoding="async"
+            onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
+        : <span aria-hidden="true">{name.slice(0, 1)}</span>}
       <span className={s.posterShade} aria-hidden="true" />
       {rating !== undefined && <span className={s.rating}>★ {rating.toFixed(1)}</span>}
     </div>

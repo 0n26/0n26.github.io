@@ -4,6 +4,7 @@ import { Link, NavLink, Route, Routes, useMatch } from 'react-router';
 import { version } from '../../package.json';
 import { CatalogPage } from '../features/catalog/CatalogPage';
 
+import { AppearanceMenu } from './AppearanceMenu';
 import { UpdateNotice } from './UpdateNotice';
 import styles from './App.module.css';
 
@@ -38,6 +39,7 @@ export function App() {
                 <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
               </Group>
             )}
+            <AppearanceMenu />
             <Link to="/profile" className={styles.profileLink} aria-label="Мой профиль" title="Мой профиль">
               <span aria-hidden="true">🦉</span>
             </Link>

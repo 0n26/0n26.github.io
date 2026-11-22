@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { formatCount, groupInventory, levelPercent, parseProfileTab, rarityOrder } from './logic';
-import type { InventoryItem } from './types';
+import {
+  addCardToAlbum, addCardToNewAlbum, albumsWithCard, createAlbum, deleteAlbum, formatCount,
+  groupInventory, levelPercent, parseProfileTab, pluralCards, rarityOrder, removeCardFromAlbum, renameAlbum,
+} from './logic';
+import type { Album, InventoryItem } from './types';
 
 function item(id: string, kind: string, rarity: InventoryItem['rarity'], name: string): InventoryItem {
   return { id, kind, rarity, name, description: '', icon: '★', quantity: 1, acquiredAt: '2026-01-01' };
@@ -10,6 +13,8 @@ describe('profile tabs', () => {
   it('returns known tabs and falls back to overview', () => {
     expect(parseProfileTab('inventory')).toBe('inventory');
     expect(parseProfileTab('badges')).toBe('badges');
+    expect(parseProfileTab('cards')).toBe('cards');
+    expect(parseProfileTab('albums')).toBe('albums');
     expect(parseProfileTab('unknown')).toBe('overview');
     expect(parseProfileTab(null)).toBe('overview');
   });
@@ -40,6 +45,49 @@ describe('groupInventory', () => {
   it('keeps mythic items before common ones', () => {
     const rarityFirst = rarityOrder.indexOf('mythic') < rarityOrder.indexOf('common');
     expect(rarityFirst).toBe(true);
+  });
+});
+
+describe('albums', () => {
+  const initial: readonly Album[] = [
+    { id: 'al1', name: 'Осенний марафон', description: '', cardIds: ['c1'] },
+    { id: 'al2', name: 'Зима', description: '', cardIds: ['c2'] },
+  ];
+
+  it('adds a card only once and reports membership', () => {
+    const next = addCardToAlbum(initial, 'al1', 'c1');
+    expect(next[0].cardIds).toEqual(['c1']);
+    expect(addCardToAlbum(next, 'al1', 'c3')[0].cardIds).toEqual(['c1', 'c3']);
+    expect(albumsWithCard(next, 'c1')).toEqual(['al1']);
+  });
+
+  it('creates, renames and removes albums without mutating the source', () => {
+    const created = createAlbum(initial, 'al3', '  Новый альбом  ');
+    expect(created[2]).toMatchObject({ id: 'al3', name: 'Новый альбом', cardIds: [] });
+    expect(createAlbum(initial, 'al3', '   ')).toBe(initial);
+    expect(renameAlbum(created, 'al3', 'Весна')[2].name).toBe('Весна');
+    expect(deleteAlbum(created, 'al3')).toEqual(initial);
+    expect(initial).toHaveLength(2);
+  });
+
+  it('creates an album and puts a card there in one step', () => {
+    const next = addCardToNewAlbum(initial, 'al4', 'Избранное', 'c7');
+    expect(next[2].cardIds).toEqual(['c7']);
+  });
+
+  it('removes a card from one album only', () => {
+    const next = removeCardFromAlbum(initial, 'al2', 'c2');
+    expect(next[0].cardIds).toEqual(['c1']);
+    expect(next[1].cardIds).toEqual([]);
+  });
+});
+
+describe('pluralCards', () => {
+  it('uses Russian plural forms', () => {
+    expect(pluralCards(1)).toBe('карточка');
+    expect(pluralCards(3)).toBe('карточки');
+    expect(pluralCards(11)).toBe('карточек');
+    expect(pluralCards(21)).toBe('карточка');
   });
 });
 

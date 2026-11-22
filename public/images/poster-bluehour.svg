@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" role="img" aria-label="Голубая шкатулка">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#263b6b"/><stop offset=".6" stop-color="#6a7cb0"/><stop offset="1" stop-color="#d7b6c6"/></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#4a6a9b"/><stop offset="1" stop-color="#172b4c"/></linearGradient>
+  </defs>
+  <rect width="400" height="600" fill="url(#sky)"/>
+  <circle cx="286" cy="128" r="42" fill="#f3f0dc"/>
+  <circle cx="268" cy="116" r="42" fill="#263b6b" opacity=".92"/>
+  <g fill="#fff" opacity=".7"><circle cx="60" cy="70" r="1.6"/><circle cx="150" cy="42" r="1.6"/><circle cx="348" cy="86" r="1.6"/><circle cx="212" cy="102" r="1.2"/></g>
+  <path d="M0 330h400v270H0Z" fill="url(#sea)"/>
+  <path d="M274 330h24l28 250h-80Z" fill="#f3f0dc" opacity=".18"/>
+  <g stroke="#bcd6ea" stroke-width="2" opacity=".45" fill="none">
+    <path d="M20 380q60-10 120 0t120 0 120 0M40 430q60-10 120 0t120 0 120 0M0 490q80-12 160 0t160 0 80 0"/>
+  </g>
+  <path d="M0 330 74 282h52l26 48Z" fill="#1b2c49"/>
+  <path d="M74 282v-34h42v34Z" fill="#243a5e"/>
+  <path d="M84 258h20v20H84Z" fill="#ffd98a" opacity=".75"/>
+  <path d="M0 350h88v180H0Z" fill="#16253f"/>
+  <g transform="translate(130 356)">
+    <circle cx="-16" cy="-18" r="13" fill="#1a2945"/><path d="M-30-4q14-10 28 0l8 64h-44Z" fill="#e9e3d8"/>
+    <path d="M-14 60-30 108M-4 60l22 48" stroke="#1a2945" stroke-width="6"/>
+    <circle cx="34" cy="94" r="14" fill="none" stroke="#1a2945" stroke-width="4"/>
+    <circle cx="34" cy="94" r="3" fill="#1a2945"/>
+    <path d="M4 46 34 94" stroke="#1a2945" stroke-width="3"/>
+    <path d="M-30-12q14-14 30-2" stroke="#1a2945" stroke-width="6" fill="none"/>
+  </g>
+  <g fill="#ffd98a" opacity=".7"><circle cx="350" cy="350" r="3"/><circle cx="366" cy="370" r="2"/><circle cx="338" cy="374" r="2"/></g>
+</svg>

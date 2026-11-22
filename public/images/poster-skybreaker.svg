@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" role="img" aria-label="Рассекая небосвод">
+  <defs>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#173451"/><stop offset=".55" stop-color="#5d7396"/><stop offset="1" stop-color="#e5b27a"/></linearGradient>
+    <radialGradient id="sun"><stop stop-color="#ffe9b8"/><stop offset="1" stop-color="#ffd08a" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="400" height="600" fill="url(#s)"/>
+  <circle cx="205" cy="252" r="150" fill="url(#sun)"/>
+  <circle cx="205" cy="252" r="62" fill="#ffe6b4" opacity=".92"/>
+  <g fill="#f4f0e6" opacity=".55">
+    <path d="M0 170q80-30 160 4t160-12 80 8v54q-90-22-160 6T0 216Z"/>
+    <path d="M0 320q90-34 170 8t230-10v90q-100-28-190 8T0 400Z" opacity=".6"/>
+  </g>
+  <path d="M0 470 138 396l94 44 168-72v232H0Z" fill="#1c2a3c"/>
+  <path d="M0 520 138 446l94 44 168-72" fill="none" stroke="#8fb6cf" stroke-width="2" opacity=".5"/>
+  <g transform="translate(198 350)">
+    <path d="M0 96V30l-14-18-8 18-12 10 8 22 14 6v28Z" fill="#101b29"/>
+    <path d="M-7 34 22-58l6 6-30 92Z" fill="#d8e6ef"/>
+    <path d="M22-58 30-74 34-56 28-52Z" fill="#ffd98a"/>
+    <path d="M-14 126 0 96l16 30-10 64h-12Z" fill="#101b29"/>
+    <path d="M-22 118h44" stroke="#101b29" stroke-width="10"/>
+  </g>
+  <g fill="#ffedc9" opacity=".75"><circle cx="62" cy="86" r="2"/><circle cx="330" cy="120" r="2"/><circle cx="282" cy="64" r="1.5"/><circle cx="110" cy="140" r="1.5"/></g>
+</svg>

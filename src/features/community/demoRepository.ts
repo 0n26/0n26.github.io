@@ -1,6 +1,15 @@
 import type { CommunityOverview, UserProfile } from './types';
 
 const demoHandle = 'night-owl';
+/** Локальная графика: постеры не зависят от стороннего CDN. */
+const images = {
+  skybreaker: '/images/poster-skybreaker.svg',
+  bluehour: '/images/poster-bluehour.svg',
+  foxspirit: '/images/poster-foxspirit.svg',
+  aoasi: '/images/poster-aoasi.svg',
+  starfall: '/images/poster-starfall.svg',
+  neon: '/images/poster-neon.svg',
+};
 
 const profile: UserProfile = {
   id: 'u-1001',
@@ -10,13 +19,15 @@ const profile: UserProfile = {
   status: 'Досматриваю серию перед сном. Не беспокоить до титров.',
   country: 'Россия',
   joinedAt: '2022-04-18',
-  bio: 'Смотрю аниме по расписанию, коллекционирую значки и спорю о озвучке в комментариях. Люблю длинные сериалы и короткие nights.',
+  bio: 'Смотрю аниме по расписанию, собираю карточки за серии и спорю об озвучке в комментариях. Люблю длинные сериалы и короткие ночи.',
   level: 42,
   xp: 2380,
   xpToNext: 3200,
   banner: ['#123b57', '#6b3a8c'],
+  bannerImage: '/images/community-banner.svg',
   avatar: ['#f6b64d', '#e05f85'],
   avatarIcon: '🦉',
+  avatarImage: '/images/avatar-owl.svg',
   stats: { episodes: 1842, watchHours: 736, titles: 214, reviews: 38, friends: 56, reputation: 921 },
   badges: [
     { id: 'b1', name: 'Ночной смотритель', description: '100 серий после полуночи', icon: '🌙', level: 12, xp: 900, progress: 74, rare: true },
@@ -29,12 +40,26 @@ const profile: UserProfile = {
     { id: 'b8', name: 'Новичок', description: 'Добро пожаловать в сообщество', icon: '⭐', level: 1, xp: 80, progress: 100 },
   ],
   favorites: [
-    { id: 'f1', name: 'Рассекая небосвод', href: '/?q=' + encodeURIComponent('Рассекая небосвод'), progress: 72, rating: 9.3, note: 'Серия 19 из 26' },
-    { id: 'f2', name: 'Ао Аси', href: '/?q=' + encodeURIComponent('Ао Аси'), progress: 40, rating: 8.9, note: 'Серия 2 сезона 8 из 12' },
-    { id: 'f3', name: 'Голубая шкатулка 2', href: '/?q=' + encodeURIComponent('Голубая шкатулка'), progress: 88, rating: 8.6, note: 'Серия 7 из 12' },
-    { id: 'f4', name: 'Коллекционер ужасов', href: '/?q=' + encodeURIComponent('Коллекционер ужасов'), progress: 35, rating: 8.3, note: 'Серия 7' },
-    { id: 'f5', name: 'Ледяная стена 2', href: '/?q=' + encodeURIComponent('Ледяная стена'), progress: 60, rating: 8.7, note: 'Серия 8 из 12' },
-    { id: 'f6', name: 'Путь аса: Акт II', href: '/?q=' + encodeURIComponent('Путь аса'), progress: 20, rating: 8.4, note: 'Серия 6 из 13' },
+    { id: 'f1', name: 'Рассекая небосвод', poster: images.skybreaker, href: '/?q=' + encodeURIComponent('Рассекая небосвод'), progress: 72, rating: 9.3, note: 'Серия 19 из 26' },
+    { id: 'f2', name: 'Ао Аси 2', poster: images.aoasi, href: '/?q=' + encodeURIComponent('Ао Аси'), progress: 40, rating: 8.9, note: 'Серия 8 из 12' },
+    { id: 'f3', name: 'Голубая шкатулка 2', poster: images.bluehour, href: '/?q=' + encodeURIComponent('Голубая шкатулка'), progress: 88, rating: 8.6, note: 'Серия 7 из 12' },
+    { id: 'f4', name: 'Токийские мстители', poster: images.neon, href: '/?q=' + encodeURIComponent('Токийские мстители'), progress: 35, rating: 8.5, note: 'Серия 9 из 13' },
+    { id: 'f5', name: 'Ледяная стена 2', poster: images.starfall, href: '/?q=' + encodeURIComponent('Ледяная стена'), progress: 60, rating: 8.7, note: 'Серия 9 из 12' },
+    { id: 'f6', name: 'Во всеоружии: Сила артефактов', poster: images.foxspirit, href: '/?q=' + encodeURIComponent('Во всеоружии'), progress: 20, rating: 8.3, note: 'Серия 9 из 12' },
+  ],
+  cards: [
+    { id: 'c1', title: 'Рассекая небосвод', episode: 19, episodeLabel: 'Серия 19', image: images.skybreaker, watchedAt: '2026-11-22T18:40:00+03:00', progress: 72, rarity: 'legendary', note: 'Самый ожидаемый эпизод сезона.', href: '/?q=' + encodeURIComponent('Рассекая небосвод') },
+    { id: 'c2', title: 'Ао Аси 2', episode: 8, episodeLabel: 'Серия 8', image: images.aoasi, watchedAt: '2026-11-22T15:10:00+03:00', progress: 40, rarity: 'rare', note: 'Спокойный вечерний футбол.', href: '/?q=' + encodeURIComponent('Ао Аси') },
+    { id: 'c3', title: 'Голубая шкатулка 2', episode: 7, episodeLabel: 'Серия 7', image: images.bluehour, watchedAt: '2026-11-20T20:45:00+03:00', progress: 88, rarity: 'epic', note: 'Тёплый финал арки.', href: '/?q=' + encodeURIComponent('Голубая шкатулка') },
+    { id: 'c4', title: 'Ледяная стена 2', episode: 9, episodeLabel: 'Серия 9', image: images.starfall, watchedAt: '2026-11-19T21:05:00+03:00', progress: 60, rarity: 'rare', note: 'Очень красивая анимация боя.', href: '/?q=' + encodeURIComponent('Ледяная стена') },
+    { id: 'c5', title: 'Токийские мстители', episode: 9, episodeLabel: 'Серия 9', image: images.neon, watchedAt: '2026-11-18T19:23:00+03:00', progress: 35, rarity: 'legendary', note: 'Сцена, которую стоит пересмотреть.', href: '/?q=' + encodeURIComponent('Токийские мстители') },
+    { id: 'c6', title: 'Во всеоружии: Сила артефактов', episode: 9, episodeLabel: 'Серия 9', image: images.foxspirit, watchedAt: '2026-11-17T18:30:00+03:00', progress: 20, rarity: 'common', note: 'Лёгкий сериал на фоне.', href: '/?q=' + encodeURIComponent('Во всеоружии') },
+    { id: 'c7', title: 'Свадьба светлячков', episode: 7, episodeLabel: 'Серия 7', image: images.bluehour, watchedAt: '2026-11-16T22:15:00+03:00', progress: 55, rarity: 'epic', note: 'Неожиданно трогательная история.', href: '/?q=' + encodeURIComponent('Свадьба светлячков') },
+    { id: 'c8', title: 'Даже у студсовета есть косяки!', episode: 9, episodeLabel: 'Серия 9', image: images.aoasi, watchedAt: '2026-11-15T18:30:00+03:00', progress: 45, rarity: 'common', note: 'Идеально перед сном.', href: '/?q=' + encodeURIComponent('Студсовет') },
+  ],
+  albums: [
+    { id: 'al1', name: 'Осенний марафон', description: 'Серии, которые хочется пересмотреть зимой.', cardIds: ['c1', 'c4', 'c7'] },
+    { id: 'al2', name: 'Короткое и тёплое', description: 'Небольшие истории на один вечер.', cardIds: ['c3', 'c6', 'c8'] },
   ],
   friends: [
     { id: 'u-2001', name: 'Сакура_77', icon: '🌸', presence: 'online', status: 'Смотрит «Не ревнуй, Асука»' },
@@ -51,8 +76,8 @@ const profile: UserProfile = {
     { id: 'g4', name: 'Сто серий в день', icon: '⚡', members: 476 },
   ],
   activity: [
-    { id: 'a1', kind: 'watched', title: 'Рассекая небосвод', detail: 'Серия 19 · Субтитры', at: '2026-11-22T18:40:00+03:00', href: '/?q=' + encodeURIComponent('Рассекая небосвод') },
-    { id: 'a2', kind: 'watched', title: 'Ледяная стена 2', detail: 'Серия 8 · Озвучка', at: '2026-11-22T17:25:00+03:00', href: '/?q=' + encodeURIComponent('Ледяная стена') },
+    { id: 'a1', kind: 'watched', title: 'Рассекая небосвод', detail: 'Серия 19 · карточка добавлена в коллекцию', at: '2026-11-22T18:40:00+03:00', href: '/?q=' + encodeURIComponent('Рассекая небосвод') },
+    { id: 'a2', kind: 'watched', title: 'Ледяная стена 2', detail: 'Серия 9 · Озвучка', at: '2026-11-22T17:25:00+03:00', href: '/?q=' + encodeURIComponent('Ледяная стена') },
     { id: 'a3', kind: 'badge', title: 'Получен значок «Ночной смотритель»', detail: 'Уровень 12 · +900 опыта', at: '2026-11-21T23:10:00+03:00' },
     { id: 'a4', kind: 'review', title: 'Отзыв о «Голубой шкатулке 2»', detail: '«Камерная история с очень тёплым концом»', at: '2026-11-20T21:05:00+03:00' },
     { id: 'a5', kind: 'inventory', title: 'Экипирован «Плащ комментатора»', detail: 'Эпический предмет коллекции', at: '2026-11-19T19:30:00+03:00' },
@@ -74,11 +99,10 @@ const profile: UserProfile = {
   ],
   history: [
     { id: 'h1', name: 'Рассекая небосвод', episode: 'Серия 19', at: '2026-11-22T18:40:00+03:00', href: '/?q=' + encodeURIComponent('Рассекая небосвод') },
-    { id: 'h2', name: 'Ледяная стена 2', episode: 'Серия 8', at: '2026-11-22T17:25:00+03:00', href: '/?q=' + encodeURIComponent('Ледяная стена') },
-    { id: 'h3', name: 'Коллекционер ужасов', episode: 'Серия 7', at: '2026-11-21T22:10:00+03:00', href: '/?q=' + encodeURIComponent('Коллекционер ужасов') },
-    { id: 'h4', name: 'Голубая шкатулка 2', episode: 'Серия 7', at: '2026-11-20T20:45:00+03:00', href: '/?q=' + encodeURIComponent('Голубая шкатулка') },
-    { id: 'h5', name: 'Путь аса: Акт II', episode: 'Серия 6', at: '2026-11-19T19:05:00+03:00', href: '/?q=' + encodeURIComponent('Путь аса') },
-    { id: 'h6', name: 'Ао Аси', episode: 'Серия 8', at: '2026-11-18T18:30:00+03:00', href: '/?q=' + encodeURIComponent('Ао Аси') },
+    { id: 'h2', name: 'Ледяная стена 2', episode: 'Серия 9', at: '2026-11-22T17:25:00+03:00', href: '/?q=' + encodeURIComponent('Ледяная стена') },
+    { id: 'h3', name: 'Голубая шкатулка 2', episode: 'Серия 7', at: '2026-11-21T22:10:00+03:00', href: '/?q=' + encodeURIComponent('Голубая шкатулка') },
+    { id: 'h4', name: 'Токийские мстители', episode: 'Серия 9', at: '2026-11-20T20:45:00+03:00', href: '/?q=' + encodeURIComponent('Токийские мстители') },
+    { id: 'h5', name: 'Ао Аси 2', episode: 'Серия 8', at: '2026-11-19T19:05:00+03:00', href: '/?q=' + encodeURIComponent('Ао Аси') },
   ],
 };
 
@@ -95,7 +119,7 @@ const overview: CommunityOverview = {
     { id: 'd1', title: 'Какая озвучка стала лучше в этом сезоне?', section: 'Обсуждения', author: 'Кодзима', replies: 128, at: '2026-11-22T16:20:00+03:00' },
     { id: 'd2', title: 'Список тайтлов для долгой зимы', section: 'Подборки', author: 'Тёплый плед', replies: 74, at: '2026-11-22T14:05:00+03:00' },
     { id: 'd3', title: 'Как вы храните историю просмотров?', section: 'Вопросы', author: 'Сэм', replies: 41, at: '2026-11-21T21:35:00+03:00' },
-    { id: 'd4', title: 'Значки: что Collective просит вернуть', section: 'Гильдия коллекционеров', author: 'Тайтл-менеджер', replies: 33, at: '2026-11-21T18:10:00+03:00' },
+    { id: 'd4', title: 'Альбомы карточек: покажите свои подборки', section: 'Коллекционеры', author: 'Тайтл-менеджер', replies: 33, at: '2026-11-21T18:10:00+03:00' },
   ],
   topProfiles: [
     { id: 'u-3001', name: 'Аниме-архивариус', icon: '📼', level: 87 },
@@ -115,6 +139,7 @@ export function getDemoProfile(handle: string): UserProfile | null {
     handle,
     name: handle,
     avatarIcon: '👤',
+    avatarImage: undefined,
     status: 'Профиль сообщества',
     level: 1,
     xp: 0,
@@ -126,6 +151,8 @@ export function getDemoProfile(handle: string): UserProfile | null {
     favorites: [],
     activity: [],
     history: [],
+    cards: [],
+    albums: [],
   };
 }
 

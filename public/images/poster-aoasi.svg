@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" role="img" aria-label="Ао Аси">
+  <defs><linearGradient id="e" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2b5a76"/><stop offset=".55" stop-color="#e7a66f"/><stop offset="1" stop-color="#f6d6a1"/></linearGradient></defs>
+  <rect width="400" height="600" fill="url(#e)"/>
+  <circle cx="200" cy="292" r="92" fill="#ffe6b4" opacity=".85"/>
+  <path d="M0 240q90-26 160 6t240-10v60q-110 26-190-4T0 290Z" fill="#f2d0ac" opacity=".4"/>
+  <path d="M0 390h400v210H0Z" fill="#2f6b54"/>
+  <path d="M0 440h400M40 390v210M200 390v210M360 390v210" stroke="#d9f0d6" stroke-width="2" opacity=".45"/>
+  <ellipse cx="200" cy="486" rx="150" ry="72" fill="none" stroke="#d9f0d6" stroke-width="2" opacity=".6"/>
+  <g transform="translate(160 400)">
+    <circle cx="0" cy="0" r="14" fill="#142433"/><path d="M-14 12q14-8 28 0l6 70h-40Z" fill="#f5f2e8"/>
+    <path d="M-10 82-24 142M10 82l22 60" stroke="#142433" stroke-width="8"/>
+    <path d="M-12 24 32 58" stroke="#f5f2e8" stroke-width="8"/>
+  </g>
+  <g transform="translate(266 420)">
+    <circle cx="0" cy="0" r="13" fill="#142433"/><path d="M-13 12q13-8 26 0l6 64h-38Z" fill="#2b3d62"/>
+    <path d="M-8 76-20 132M9 76l20 56" stroke="#142433" stroke-width="7"/>
+  </g>
+  <circle cx="232" cy="478" r="18" fill="#f7f2e4" stroke="#2b3d62" stroke-width="2"/>
+  <path d="M232 462v32M216 478h32" stroke="#2b3d62" stroke-width="1.5"/>
+</svg>

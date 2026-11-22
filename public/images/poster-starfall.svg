@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" role="img" aria-label="Метеоритный дождь">
+  <defs><linearGradient id="n" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0f2444"/><stop offset=".6" stop-color="#3f3c77"/><stop offset="1" stop-color="#7c628f"/></linearGradient></defs>
+  <rect width="400" height="600" fill="url(#n)"/>
+  <g fill="#fff" opacity=".8"><circle cx="52" cy="60" r="1.6"/><circle cx="130" cy="110" r="1.2"/><circle cx="280" cy="50" r="1.6"/><circle cx="350" cy="140" r="1.4"/><circle cx="220" cy="170" r="1.2"/><circle cx="85" cy="210" r="1.2"/></g>
+  <g stroke="#ffd98a" stroke-linecap="round" opacity=".85">
+    <path d="M60 70 160 150" stroke-width="3"/><path d="M180 40 250 106" stroke-width="2"/><path d="M300 180 356 224" stroke-width="2"/><path d="M96 160 152 200" stroke-width="1.6"/>
+  </g>
+  <g fill="#ffe6a8"><circle cx="160" cy="150" r="4"/><circle cx="250" cy="106" r="3"/><circle cx="356" cy="224" r="3"/></g>
+  <path d="M0 450q100-90 190-42t210-26v218H0Z" fill="#142944"/>
+  <path d="M0 500q120-60 200-18t200-20v138H0Z" fill="#0d1d33"/>
+  <g transform="translate(150 420)">
+    <circle cx="-24" cy="-2" r="12" fill="#0a1729"/><path d="M-38 8q14-8 28 0l6 44h-40Z" fill="#c9dae6"/>
+    <circle cx="30" cy="4" r="12" fill="#0a1729"/><path d="M16 14q14-8 28 0l6 38H12Z" fill="#e2c9c3"/>
+    <path d="M-12 52 30 56" stroke="#0a1729" stroke-width="4"/>
+  </g>
+  <g transform="translate(250 490)"><path d="M-24 0h48l-6 18h-36Z" fill="#6c7d99"/><path d="M-8-18h16L10 0h-20Z" fill="#a8b8ca"/></g>
+  <path d="M0 560q100-20 200 0t200 0" stroke="#3c5873" stroke-width="2" fill="none" opacity=".6"/>
+</svg>

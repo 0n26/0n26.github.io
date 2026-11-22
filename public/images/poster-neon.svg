@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" role="img" aria-label="Неон-город">
+  <defs><linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#12243f"/><stop offset=".55" stop-color="#3b2b62"/><stop offset="1" stop-color="#0d2033"/></linearGradient></defs>
+  <rect width="400" height="600" fill="url(#r)"/>
+  <g fill="#162a45"><path d="M0 80h80v380H0Zm96-40h88v420H96Zm200 60h104v360H296Z"/></g>
+  <g fill="#7cc4f0" opacity=".7">
+    <path d="M16 110h16v14H16ZM48 110h16v14H48ZM16 150h16v14H16ZM112 90h18v14h-18ZM148 90h18v14h-18ZM112 130h18v14h-18ZM312 130h18v14h-18ZM348 130h18v14h-18ZM312 170h18v14h-18Z"/>
+  </g>
+  <g fill="#e58bb2" opacity=".7"><path d="M148 130h18v14h-18ZM348 170h18v14h-18ZM96 220h18v14H96Z"/></g>
+  <path d="M0 460h400v140H0Z" fill="#0a1a2b"/>
+  <path d="M0 480h400v24H0Z" fill="#2c6d93" opacity=".35"/>
+  <g stroke="#7cc4f0" stroke-width="2" opacity=".3"><path d="M40 480v120M140 480v120M260 480v120M360 480v120"/></g>
+  <g transform="translate(206 350)">
+    <path d="M-58 0q58-46 116 0l-10 14h-96Z" fill="#d98f7d"/>
+    <path d="M0-6v138" stroke="#3b2b4f" stroke-width="5"/>
+    <path d="M-20 78q20-16 40 0l16 96h-72Z" fill="#1a2b45"/>
+    <path d="M-14 174-24 232M14 174l18 58" stroke="#1a2b45" stroke-width="9"/>
+    <circle cx="-40" cy="128" r="10" fill="#ffd98a" opacity=".9"/>
+  </g>
+  <g stroke="#9ad8f4" stroke-width="1.6" opacity=".55"><path d="M30 60 90 180M330 40 280 160M120 30 170 140"/></g>
+</svg>

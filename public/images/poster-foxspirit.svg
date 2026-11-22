@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" role="img" aria-label="Лисий храм">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4b222c"/><stop offset=".55" stop-color="#a44e3a"/><stop offset="1" stop-color="#ebae69"/></linearGradient></defs>
+  <rect width="400" height="600" fill="url(#bg)"/>
+  <circle cx="300" cy="160" r="72" fill="#ffdca6" opacity=".55"/>
+  <g fill="#d96c43" opacity=".8">
+    <path d="M40 60q14 12 4 24-18-4-20-18Z"/><path d="M340 70q-14 12-4 24 18-4 20-18Z"/>
+    <path d="M96 180q14 12 4 24-18-4-20-18Z"/><path d="M370 240q-14 12-4 24 18-4 20-18Z"/>
+  </g>
+  <g fill="#8f2f2f">
+    <path d="M64 170h34v330H64Zm238 0h34v330h-34Z"/>
+    <path d="M42 166h316v22H42Zm18-28h280v18H60Z"/>
+  </g>
+  <g fill="#8f2f2f">
+    <path d="M140 250h24v250h-24Zm96 0h24v250h-24Z"/>
+    <path d="M122 246h156v18H122Zm16-24h124v16H138Z"/>
+  </g>
+  <path d="M0 500h400v100H0Z" fill="#381d28"/>
+  <g transform="translate(200 396)">
+    <path d="M-44 34q-8-38 16-52l-8-24 26 14 22-18-2 28q24 18 16 52l-18 12h-32Z" fill="#f6e9d6"/>
+    <path d="M-36-18-30 4-14-10ZM36-18 30 4 14-10Z" fill="#f6e9d6"/>
+    <path d="M-36-42-22-24-44-28ZM36-42 22-24 44-28Z" fill="#f6e9d6"/>
+    <circle cx="-15" cy="16" r="3" fill="#3b2230"/><circle cx="15" cy="16" r="3" fill="#3b2230"/>
+    <path d="M0 26 6 30 0 34-6 30Z" fill="#c65b53"/>
+    <path d="M-28 40q28 20 56 0l14 48q-42 22-84 0Z" fill="#f3e3c9" opacity=".9"/>
+  </g>
+  <g fill="#e88f5a" opacity=".8"><path d="M60 440q12-14 22 0-12 14-22 0Z"/><path d="M330 480q12-14 22 0-12 14-22 0Z"/></g>
+</svg>

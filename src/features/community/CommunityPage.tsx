@@ -11,9 +11,10 @@ import { useCommunityRequest } from './useCommunityRequest';
 
 const sectionLinks = [
   { to: '/community', label: 'Главная' },
-  { to: '/profile?tab=friends', label: 'Друзья' },
+  { to: '/profile', label: 'Профиль' },
+  { to: '/profile?tab=cards', label: 'Карточки' },
+  { to: '/profile?tab=albums', label: 'Альбомы' },
   { to: '/profile?tab=badges', label: 'Значки' },
-  { to: '/profile?tab=inventory', label: 'Инвентарь' },
   { to: '/schedule', label: 'Расписание' },
 ];
 
@@ -29,31 +30,26 @@ export function CommunityPage() {
   if (overview.status === 'loading' || profile.status === 'loading') {
     return <Text role="status">Загружаем сообщество…</Text>;
   }
-  if (overview.status === 'error' || profile.status === 'error' || !profile.data) {
+  if (overview.status === 'error' || profile.status === 'error' || !overview.data || !profile.data) {
     return <Alert role="alert" color="red" title="Сообщество недоступно">Попробуйте открыть страницу позже.</Alert>;
   }
 
   return (
     <div>
       <section className={s.hubHero}>
-        <div className={s.eyebrow}>Сообщество</div>
-        <h1 className={s.hubTitle}>Ночной сеанс</h1>
-        <p className={s.hubLead}>
-          Место, где серии превращаются в историю: обсуждайте премьеры, меняйтесь значками,
-          собирайте коллекцию и смотрите вместе.
-        </p>
-        <div className={s.hubStats}>
-          <div>
-            <div className={s.hubStatValue}>{formatCount(overview.data.online)}</div>
-            <div className={s.hubStatLabel}>в сети</div>
-          </div>
-          <div>
-            <div className={s.hubStatValue}>{formatCount(overview.data.members)}</div>
-            <div className={s.hubStatLabel}>участников</div>
-          </div>
-          <div>
-            <div className={s.hubStatValue}>{formatCount(overview.data.discussionsToday)}</div>
-            <div className={s.hubStatLabel}>обсуждений сегодня</div>
+        <img className={s.hubHeroArt} src="/images/community-banner.svg" alt="" />
+        <div className={s.hubHeroShade} aria-hidden="true" />
+        <div className={s.hubHeroContent}>
+          <div className={s.eyebrow}>Сообщество · ночной сеанс</div>
+          <h1 className={s.hubTitle}>Серии лучше вместе</h1>
+          <p className={s.hubLead}>
+            Здесь собирают карточки за просмотренные серии, спорят об озвучке, меняются значками
+            и оставляют альбомы на память о сезоне.
+          </p>
+          <div className={s.hubStats}>
+            <div><div className={s.hubStatValue}>{formatCount(overview.data.online)}</div><div className={s.hubStatLabel}>в сети</div></div>
+            <div><div className={s.hubStatValue}>{formatCount(overview.data.members)}</div><div className={s.hubStatLabel}>участников</div></div>
+            <div><div className={s.hubStatValue}>{formatCount(overview.data.discussionsToday)}</div><div className={s.hubStatLabel}>обсуждений сегодня</div></div>
           </div>
         </div>
       </section>
@@ -66,10 +62,10 @@ export function CommunityPage() {
 
       <div className={s.hubGrid}>
         <div className={s.hubMain}>
-          <Panel title="Лента сообщества" flush>
+          <Panel title="Лента сообщества" subtitle="Что только что случилось в вашем кругу." flush>
             <ActivityList items={profile.data.activity} />
           </Panel>
-          <Panel title="Обсуждения" flush>
+          <Panel title="Обсуждения" subtitle="Живые темы от тех, кто смотрит в тот же вечер." flush>
             <ul className={s.activityList}>
               {overview.data.discussions.map((discussion) => (
                 <li key={discussion.id} className={s.activityRow}>
@@ -85,8 +81,22 @@ export function CommunityPage() {
               ))}
             </ul>
           </Panel>
+          <Panel title="Карточки недели" subtitle="Подборка серий, которые чаще всего добавляли в альбомы."
+            action={<Link className={s.panelLink} to="/profile?tab=cards">Все карточки →</Link>}>
+            <div className={s.featuredCards}>
+              {profile.data.cards.slice(0, 4).map((card) => (
+                <Link key={card.id} className={s.featuredCard} to={card.href ?? '/profile?tab=cards'}>
+                  <img src={card.image} alt="" loading="lazy" decoding="async" />
+                  <span className={s.featuredCardLabel}>
+                    <strong>{card.title}</strong>
+                    <small>{card.episodeLabel}</small>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </Panel>
           {schedule.status === 'ready' && schedule.data.length > 0 && (
-            <Panel title="Скоро в эфире" flush>
+            <Panel title="Скоро в эфире" subtitle="Ближайшие серии по расписанию." flush>
               <ul className={s.activityList}>
                 {schedule.data.slice(0, 6).map((entry) => (
                   <li key={`${entry.day}-${entry.alias}`} className={s.activityRow}>

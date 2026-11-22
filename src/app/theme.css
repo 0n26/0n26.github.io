@@ -1,0 +1,29 @@
+:root {
+  --app-bg: #101c28;
+  --app-accent: #7cc4f0;
+  --app-text: #e8f2f9;
+  --app-muted: #94adbf;
+  --app-surface: color-mix(in srgb, var(--app-bg) 84%, #2e4d64 16%);
+  --app-surface-alt: color-mix(in srgb, var(--app-bg) 74%, #3b5d76 26%);
+  --app-border: color-mix(in srgb, var(--app-bg) 68%, #64869e 32%);
+  --app-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  --app-serif: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+}
+
+[data-app-theme='light'] {
+  --app-text: #182633;
+  --app-muted: #5f7383;
+  --app-surface: color-mix(in srgb, var(--app-bg) 94%, white 6%);
+  --app-surface-alt: color-mix(in srgb, var(--app-bg) 86%, #b9cfdf 14%);
+  --app-border: color-mix(in srgb, var(--app-bg) 76%, #7c93a4 24%);
+  --app-shadow: 0 18px 40px rgba(30, 50, 70, 0.12);
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+::selection { background: var(--app-accent); color: #0d1822; }
+
+:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }

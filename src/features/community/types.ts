@@ -74,6 +74,27 @@ export interface WatchHistoryEntry {
   poster?: string;
 }
 
+/** Карточка за просмотренную серию — основа коллекции профиля. */
+export interface WatchCard {
+  id: string;
+  title: string;
+  episode: number;
+  episodeLabel: string;
+  image: string;
+  watchedAt: string;
+  progress: number;
+  rarity: Rarity;
+  note: string;
+  href?: string;
+}
+
+export interface Album {
+  id: string;
+  name: string;
+  description: string;
+  cardIds: readonly string[];
+}
+
 export interface ProfileStats {
   episodes: number;
   watchHours: number;
@@ -98,6 +119,8 @@ export interface UserProfile {
   banner: readonly [string, string];
   avatar: readonly [string, string];
   avatarIcon: string;
+  avatarImage?: string;
+  bannerImage?: string;
   stats: ProfileStats;
   badges: readonly ProfileBadge[];
   favorites: readonly FavoriteTitle[];
@@ -106,6 +129,8 @@ export interface UserProfile {
   activity: readonly ActivityItem[];
   inventory: readonly InventoryItem[];
   history: readonly WatchHistoryEntry[];
+  cards: readonly WatchCard[];
+  albums: readonly Album[];
 }
 
 export interface CommunityEvent {

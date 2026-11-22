@@ -1,6 +1,6 @@
 import { positiveInteger, record, text } from '../../sources/values';
 import { getDemoOverview, getDemoProfile } from './demoRepository';
-import type { CommunityOverview, UserProfile } from './types';
+import type { Album, CommunityOverview, UserProfile } from './types';
 
 /**
  * Граница будущего backend. UI зависит только от этого контракта:
@@ -9,6 +9,8 @@ import type { CommunityOverview, UserProfile } from './types';
 export interface CommunityRepository {
   getProfile(handle: string, signal: AbortSignal): Promise<UserProfile | null>;
   getOverview(signal: AbortSignal): Promise<CommunityOverview>;
+  /** Необязательно: запись альбомов в backend. Пока достаточен localStorage. */
+  saveAlbums?(handle: string, albums: readonly Album[], signal: AbortSignal): Promise<void>;
 }
 
 function aborted(signal: AbortSignal): boolean {
@@ -16,14 +18,21 @@ function aborted(signal: AbortSignal): boolean {
 }
 
 export function createDemoCommunityRepository(): CommunityRepository {
+  const savedAlbums = new Map<string, readonly Album[]>();
   return {
     async getProfile(handle, signal) {
       if (aborted(signal)) return null;
-      return getDemoProfile(handle);
+      const profile = getDemoProfile(handle);
+      const albums = savedAlbums.get(handle);
+      return albums && profile ? { ...profile, albums } : profile;
     },
     async getOverview(signal) {
       if (aborted(signal)) throw new DOMException('Aborted', 'AbortError');
       return getDemoOverview();
+    },
+    async saveAlbums(handle, albums, signal) {
+      if (aborted(signal)) return;
+      savedAlbums.set(handle, albums);
     },
   };
 }
@@ -64,6 +73,8 @@ export function parseUserProfile(value: unknown): UserProfile | null {
     banner: asTuple(data.banner, ['#123b57', '#6b3a8c']),
     avatar: asTuple(data.avatar, ['#f6b64d', '#e05f85']),
     avatarIcon: text(data.avatarIcon) ?? '👤',
+    avatarImage: text(data.avatarImage),
+    bannerImage: text(data.bannerImage),
     stats: {
       episodes: positiveInteger(stats.episodes) ? stats.episodes : 0,
       watchHours: positiveInteger(stats.watchHours) ? stats.watchHours : 0,
@@ -79,6 +90,8 @@ export function parseUserProfile(value: unknown): UserProfile | null {
     activity: asArray<UserProfile['activity'][number]>(data.activity),
     inventory: asArray<UserProfile['inventory'][number]>(data.inventory),
     history: asArray<UserProfile['history'][number]>(data.history),
+    cards: asArray<UserProfile['cards'][number]>(data.cards),
+    albums: asArray<UserProfile['albums'][number]>(data.albums),
   };
 }
 
@@ -111,6 +124,15 @@ export function createHttpCommunityRepository(baseUrl: string, fetcher: typeof f
       const parsed = parseCommunityOverview(await json('/overview', signal));
       if (!parsed) throw new Error('Community API: некорректный ответ');
       return parsed;
+    },
+    async saveAlbums(handle, albums, signal) {
+      const response = await fetcher(`${root}/profiles/${encodeURIComponent(handle)}/albums`, {
+        method: 'PUT',
+        signal,
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ albums }),
+      });
+      if (!response.ok) throw new Error(`Community API: ${response.status}`);
     },
   };
 }

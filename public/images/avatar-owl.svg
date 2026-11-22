@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Сова">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#2a4d66"/>
+      <stop offset="1" stop-color="#4a2f63"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop stop-color="#ffd98a" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ffd98a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bg)"/>
+  <circle cx="60" cy="58" r="46" fill="url(#glow)"/>
+  <path d="M32 44 44 30l8 12a32 32 0 0 1 16 0l8-12 12 14v34c0 16-14 26-28 26S32 94 32 78Z" fill="#1b2b3c" stroke="#f0c477" stroke-width="2"/>
+  <path d="M38 78c6 12 14 18 22 18s16-6 22-18c-6 8-14 11-22 11s-16-3-22-11Z" fill="#e9a65c"/>
+  <circle cx="48" cy="58" r="11" fill="#ffe0a3"/>
+  <circle cx="72" cy="58" r="11" fill="#ffe0a3"/>
+  <circle cx="48" cy="58" r="5" fill="#2b1f26"/>
+  <circle cx="72" cy="58" r="5" fill="#2b1f26"/>
+  <path d="m60 68 6 8-6 6-6-6Z" fill="#f2b45e"/>
+  <path d="M16 20l3 6 6 3-6 3-3 6-3-6-6-3 6-3Z" fill="#ffd98a" opacity=".8"/>
+</svg>
