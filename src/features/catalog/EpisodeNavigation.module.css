@@ -2,8 +2,8 @@
   min-width: 0;
   align-self: start;
   padding: 0.25rem 0.5rem;
-  background: #1b191f;
-  border-color: #39333e;
+  background: var(--mantine-color-default);
+  border-color: var(--mantine-color-default-border);
 }
 
 .panel[data-desktop] {
@@ -48,23 +48,23 @@
 }
 
 .panel a, .toggle {
-  color: var(--mantine-color-gray-2);
+  color: var(--mantine-color-text);
   text-decoration: none;
   font-size: var(--mantine-font-size-sm);
 }
 
 .grid a:hover, .grid a[aria-current] {
-  background: #39312a;
-  color: #ffd27c;
+  background: var(--mantine-primary-color-light);
+  color: var(--mantine-primary-color-light-color);
 }
 
 .grid a[aria-current] {
-  border-color: #d5a34d;
+  border-color: var(--mantine-primary-color-filled);
   font-weight: 700;
 }
 
 .panel :focus-visible {
-  outline: 2px solid #ffd27c;
+  outline: 2px solid var(--mantine-primary-color-filled);
   outline-offset: 1px;
 }
 
@@ -76,7 +76,7 @@
 }
 
 .panel[data-desktop] .row {
-  border-top: 1px solid #39333e;
+  border-top: 1px solid var(--mantine-color-default-border);
   padding-top: var(--mantine-spacing-xs);
 }
 
@@ -89,7 +89,7 @@
 .next { grid-column: 3; }
 
 .row a:hover, .row .next, .toggle {
-  color: #ffd27c;
+  color: var(--mantine-color-anchor);
 }
 
 .toggle {

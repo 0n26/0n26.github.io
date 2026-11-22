@@ -7,7 +7,7 @@ export function UpdateNotice() {
   if (!needRefresh) return null;
 
   return (
-    <Alert title="Доступно обновление" mb="xl" color="yellow">
+    <Alert title="Доступно обновление" mb="xl">
       Обновите страницу, когда закончите просмотр.
       <Group mt="sm">
         <Button size="xs" onClick={() => { void updateServiceWorker(true); }}>Обновить</Button>

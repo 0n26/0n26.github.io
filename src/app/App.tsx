@@ -4,6 +4,7 @@ import { Link, NavLink, Route, Routes, useMatch } from 'react-router';
 import { version } from '../../package.json';
 import { CatalogPage } from '../features/catalog/CatalogPage';
 
+import { ThemeMenu } from './ThemeMenu';
 import { UpdateNotice } from './UpdateNotice';
 import styles from './App.module.css';
 
@@ -21,7 +22,7 @@ export function App() {
       <AppShell.Header className={`${styles.header} ${catalog ? styles.catalogHeader : ''}`}>
         <Container size="xl" h="100%">
           <Group h="100%" justify="space-between" wrap="nowrap" gap="xs">
-            <Link className={styles.brand} to="/" aria-label="Ночной сеанс">
+            <Link className={styles.brand} to="/" aria-label="Ночной сеанс — каталог">
               <img src="/icon.svg" alt="" width={36} height={36} />
               <Text span fw={800} size="sm" className={watch ? undefined : styles.brandName}>Ночной сеанс</Text>
             </Link>
@@ -31,12 +32,13 @@ export function App() {
               </Link>
             ) : (
               <Group component="nav" aria-label="Основная навигация" gap={4} wrap="nowrap">
-                <NavLink to="/" end className={`${styles.navLink} ${styles.secondaryLink}`}>Каталог</NavLink>
+                <NavLink to="/" end className={`${styles.navLink} ${styles.catalogLink}`}>Каталог</NavLink>
                 <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
                 <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
                 <NavLink to="/about" className={`${styles.navLink} ${styles.aboutLink}`}>О проекте</NavLink>
               </Group>
             )}
+            <ThemeMenu />
           </Group>
         </Container>
       </AppShell.Header>

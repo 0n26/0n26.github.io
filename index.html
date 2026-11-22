@@ -3,6 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      try {
+        const scheme = localStorage.getItem('mantine-color-scheme-value');
+        if (scheme === 'light' || (scheme === 'auto' && matchMedia('(prefers-color-scheme: light)').matches)) {
+          document.documentElement.dataset.mantineColorScheme = 'light';
+        }
+      } catch {}
+    </script>
     <meta name="theme-color" content="#14141a" />
     <meta name="description" content="Каталог аниме и HLS-плеер с Anime4K." />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
