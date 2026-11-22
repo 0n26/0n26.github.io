@@ -1,11 +1,16 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router';
-import { formatCount, formatShortDate, levelPercent, presenceTitles, profileTabs, rarityTitles, tabTitles } from './logic';
+import {
+  formatCount, formatDate, formatShortDate, levelPercent, presenceTitles, profileTabs,
+  rankColors, rankName, rankTitles, slotTitles, tabTitles,
+} from './logic';
 import type { ProfileTab } from './logic';
-import type { ActivityItem, CommunityGroup, FavoriteTitle, Friend, Presence, ProfileBadge } from './types';
+import type {
+  ActivityItem, CommunityGroup, EquipSlot, FavoriteTitle, Friend, Presence, ProfileBadge, Rank,
+} from './types';
 import s from './community.module.css';
 
-export { formatDate, formatShortDate } from './logic';
+export { formatCount, formatDate, formatShortDate, rankName };
 
 const palettes: readonly (readonly [string, string])[] = [
   ['#2f6d92', '#412f73'], ['#7a3d5e', '#263b70'], ['#376b5f', '#283a63'],
@@ -17,15 +22,16 @@ function palette(seed: string): readonly [string, string] {
   return palettes[sum % palettes.length];
 }
 
-export function Panel({ title, subtitle, action, flush, children }: {
+export function Panel({ title, subtitle, action, flush, className, children }: {
   title: string;
   subtitle?: string;
   action?: ReactNode;
   flush?: boolean;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <section className={s.panel}>
+    <section className={`${s.panel} ${className ?? ''}`}>
       <div className={s.panelHeader}>
         <div className={s.panelHeading}>
           <h2 className={s.panelTitle}>{title}</h2>
@@ -39,7 +45,36 @@ export function Panel({ title, subtitle, action, flush, children }: {
 }
 
 export function PresenceDot({ presence }: { presence: Presence }) {
-  return <span className={s.presenceDot} data-presence={presence} title={presenceTitles[presence]} aria-label={presenceTitles[presence]} />;
+  return (
+    <span className={s.presenceDot} data-presence={presence}
+      title={presenceTitles[presence]} aria-label={presenceTitles[presence]} />
+  );
+}
+
+export function rankStyle(rank: Rank): CSSProperties {
+  return { '--rank': rankColors[rank] } as CSSProperties;
+}
+
+export function RankBadge({ rank, size = 'md' }: { rank: Rank; size?: 'sm' | 'md' | 'lg' }) {
+  return (
+    <span className={s.rankBadge} data-rank={rank} data-size={size} style={rankStyle(rank)}
+      title={rankTitles[rank]}>
+      {rank}
+    </span>
+  );
+}
+
+export function SlotChip({ slot }: { slot: EquipSlot }) {
+  return <span className={s.slotChip}>{slotTitles[slot]}</span>;
+}
+
+export function Wallet({ diamonds, dust }: { diamonds: number; dust: number }) {
+  return (
+    <div className={s.wallet}>
+      <span className={s.walletChip} title="Алмазы">◆ {formatCount(diamonds)}</span>
+      <span className={s.walletChip} data-dust title="Алмазная пыль">✧ {formatCount(dust)}</span>
+    </div>
+  );
 }
 
 export function Poster({ name, src, rating }: { name: string; src?: string; rating?: number }) {
@@ -124,7 +159,7 @@ export function FriendGrid({ friends }: { friends: readonly Friend[] }) {
 }
 
 const activityIcons: Record<ActivityItem['kind'], string> = {
-  watched: '▶', review: '✎', badge: '★', inventory: '🎁', friend: '＋',
+  watched: '▶', review: '✎', badge: '★', inventory: '🎁', friend: '＋', card: '▣', pack: '✦',
 };
 
 export function ActivityList({ items }: { items: readonly ActivityItem[] }) {
@@ -183,12 +218,14 @@ export function ProfileTabs({ active, linkFor, counts }: {
   );
 }
 
-export function SupportCard() {
+export function SupportCard({ to, title, text }: { to?: string; title?: string; text?: string }) {
+  const target = to ?? '/profile?tab=shop';
   return (
     <div className={s.supportCard}>
-      <div className={s.eyebrow}>Сообщество</div>
-      <p className={s.supportTitle}>Поддержите проект</p>
-      <p className={s.supportText}>Новые значки, темы профиля и расписание выходят благодаря сообществу. Ваш вклад — новые серии и спокойные серверы.</p>
+      <div className={s.eyebrow}>Магазин</div>
+      <p className={s.supportTitle}>{title ?? 'Соберите свою колоду'}</p>
+      <p className={s.supportText}>{text ?? 'Паки, рамки и статусы помогают оформить профиль. Карточки из паков сразу попадают в коллекцию.'}</p>
+      <Link className={s.supportLink} to={target}>Открыть магазин →</Link>
     </div>
   );
 }
@@ -203,12 +240,4 @@ export function LevelBar({ xp, xpToNext }: { xp: number; xpToNext: number }) {
       <span className={s.xpCaption}>{formatCount(xp)} / {formatCount(xpToNext)} XP</span>
     </div>
   );
-}
-
-export function rarityStyle(rarity: string): React.CSSProperties {
-  return { '--rarity': `var(--rarity-${rarity})` } as CSSProperties;
-}
-
-export function rarityName(rarity: keyof typeof rarityTitles): string {
-  return rarityTitles[rarity];
 }

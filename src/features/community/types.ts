@@ -2,9 +2,16 @@
 
 export type Presence = 'online' | 'away' | 'busy' | 'offline';
 
-export type Rarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
+/** Ранг карточки. Порядок в массиве — от самого желанного к младшему. */
+export type Rank = 'X' | 'S' | 'A' | 'P' | 'G' | 'B' | 'C' | 'D' | 'E' | 'H' | 'N' | 'V' | 'Q' | 'L' | 'K' | 'W';
 
-export type ActivityKind = 'watched' | 'review' | 'badge' | 'inventory' | 'friend';
+export type ActivityKind = 'watched' | 'review' | 'badge' | 'inventory' | 'friend' | 'card' | 'pack';
+
+export type CardFrame = 'blue' | 'white' | 'green' | 'brown' | 'violet' | 'step';
+
+export type EquipSlot = 'avatar' | 'frame' | 'cover' | 'status' | 'aura' | 'boost';
+
+export type Currency = 'diamonds' | 'dust';
 
 export interface ProfileBadge {
   id: string;
@@ -17,14 +24,19 @@ export interface ProfileBadge {
   rare?: boolean;
 }
 
+/** Предмет оформления профиля. Ранг и слот определяют его место в инвентаре. */
 export interface InventoryItem {
   id: string;
   name: string;
   description: string;
-  kind: string;
-  rarity: Rarity;
+  slot: EquipSlot;
+  rank: Rank;
   icon: string;
   quantity: number;
+  level: number;
+  bonuses: readonly string[];
+  setId?: string;
+  value: number;
   equipped?: boolean;
   acquiredAt: string;
 }
@@ -83,9 +95,32 @@ export interface WatchCard {
   image: string;
   watchedAt: string;
   progress: number;
-  rarity: Rarity;
+  rank: Rank;
   note: string;
   href?: string;
+  setId: string;
+  level: number;
+  copies: number;
+  frame: CardFrame;
+  animated: boolean;
+  animationReady: boolean;
+  special: boolean;
+  power: number;
+  favorite: boolean;
+  exchangeable: boolean;
+  awakened: boolean;
+  locked: boolean;
+  potential: 'Обычная' | 'Редкая' | 'Эпическая' | 'Легендарная' | 'Мифическая';
+  dustValue: number;
+}
+
+export interface CardSet {
+  id: string;
+  name: string;
+  series: string;
+  description: string;
+  cover: string;
+  bonus: string;
 }
 
 export interface Album {
@@ -130,7 +165,10 @@ export interface UserProfile {
   inventory: readonly InventoryItem[];
   history: readonly WatchHistoryEntry[];
   cards: readonly WatchCard[];
+  cardSets: readonly CardSet[];
   albums: readonly Album[];
+  diamonds: number;
+  dust: number;
 }
 
 export interface CommunityEvent {
@@ -157,4 +195,75 @@ export interface CommunityOverview {
   events: readonly CommunityEvent[];
   discussions: readonly Discussion[];
   topProfiles: readonly { id: string; name: string; icon: string; level: number }[];
+}
+
+/* ---------- Магазин и коллекционные паки ---------- */
+
+export interface PackDrop {
+  rank: Rank;
+  weight: number;
+}
+
+export interface ShopPack {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: Currency;
+  amount: number;
+  guarantee?: Rank;
+  dropTable: readonly PackDrop[];
+  accent: string;
+  image?: string;
+  featured?: boolean;
+  note?: string;
+}
+
+export interface ShopCosmetic {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: Currency;
+  category: 'avatar' | 'frame' | 'cover' | 'status' | 'boost';
+  icon: string;
+  accent: string;
+  discount?: number;
+}
+
+export interface ShopCatalog {
+  packs: readonly ShopPack[];
+  cosmetics: readonly ShopCosmetic[];
+}
+
+export interface PackResult {
+  id: string;
+  packId: string;
+  cardId: string;
+  rank: Rank;
+  at: string;
+  duplicate: boolean;
+  bonus?: string;
+}
+
+export interface CardFlags {
+  favorite: boolean;
+  exchangeable: boolean;
+  locked: boolean;
+  awakened: boolean;
+}
+
+/** Всё, что пользователь меняет в игровой части профиля. */
+export interface CollectionState {
+  diamonds: number;
+  dust: number;
+  cardLevels: Readonly<Record<string, number>>;
+  cardCopies: Readonly<Record<string, number>>;
+  cardFlags: Readonly<Record<string, CardFlags>>;
+  extraCards: readonly WatchCard[];
+  extraInventory: readonly InventoryItem[];
+  equipped: Readonly<Partial<Record<EquipSlot, string>>>;
+  itemLevels: Readonly<Record<string, number>>;
+  pity: { s: number; x: number; xl: number };
+  packHistory: readonly PackResult[];
 }

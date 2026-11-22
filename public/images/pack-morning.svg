@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" role="img" aria-label="Утренний пак">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d9f0ff"/><stop offset="0.5" stop-color="#8ec9e8"/><stop offset="1" stop-color="#3d7fb0"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#163b58"/><stop offset="1" stop-color="#0c2134"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="30%" r="60%">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="224" height="304" rx="20" fill="url(#bg)" stroke="#d9f0ff" stroke-opacity="0.7" stroke-width="2"/>
+  <rect x="24" y="24" width="192" height="272" rx="14" fill="url(#panel)"/>
+  <circle cx="120" cy="105" r="78" fill="url(#glow)"/>
+  <circle cx="120" cy="100" r="40" fill="#ffe0a3" opacity="0.9"/>
+  <path d="M120 24v22M120 154v22M44 100h22M174 100h22M66 46l16 16M158 138l16 16M174 46l-16 16M82 138l-16 16" stroke="#ffe9bd" stroke-width="5" stroke-linecap="round" opacity="0.75"/>
+  <path d="M48 190h144l-12 78H60z" fill="#2b5e82" stroke="#9ed8f4" stroke-width="2"/>
+  <path d="M62 214h116M68 232h104M74 250h92" stroke="#9ed8f4" stroke-opacity="0.45" stroke-width="4" stroke-linecap="round"/>
+  <text x="120" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="18" font-weight="700" fill="#eaf7ff" letter-spacing="3">УТРО</text>
+</svg>

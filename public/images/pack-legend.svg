@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" role="img" aria-label="Пак легенд">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e9d6ff"/><stop offset="0.5" stop-color="#a95cff"/><stop offset="1" stop-color="#37116b"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34135f"/><stop offset="1" stop-color="#170a2d"/>
+    </linearGradient>
+    <radialGradient id="aura" cx="50%" cy="42%" r="55%">
+      <stop offset="0" stop-color="#d9b6ff" stop-opacity="0.85"/><stop offset="1" stop-color="#d9b6ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="224" height="304" rx="20" fill="url(#bg)" stroke="#e9d6ff" stroke-opacity="0.7" stroke-width="2"/>
+  <rect x="24" y="24" width="192" height="272" rx="14" fill="url(#panel)"/>
+  <circle cx="120" cy="128" r="94" fill="url(#aura)"/>
+  <path d="M120 52l14 36 38 4-29 25 9 38-32-20-32 20 9-38-29-25 38-4z" fill="#ffe0a3" stroke="#fff5d8" stroke-width="2"/>
+  <path d="M120 76l8 20 21 2-16 14 5 21-18-11-18 11 5-21-16-14 21-2z" fill="#a95cff"/>
+  <path d="M50 216h140M58 234h124M66 252h108" stroke="#dfc3ff" stroke-opacity="0.5" stroke-width="4" stroke-linecap="round"/>
+  <text x="120" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="18" font-weight="700" fill="#f3e5ff" letter-spacing="3">ЛЕГЕНДЫ</text>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" role="img" aria-label="Сезонный набор">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd9e4"/><stop offset="0.5" stop-color="#f06b92"/><stop offset="1" stop-color="#7a2450"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a1738"/><stop offset="1" stop-color="#240d1e"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="224" height="304" rx="20" fill="url(#bg)" stroke="#ffd9e4" stroke-opacity="0.7" stroke-width="2"/>
+  <rect x="24" y="24" width="192" height="272" rx="14" fill="url(#panel)"/>
+  <g transform="translate(0 -6)">
+    <rect x="58" y="72" width="78" height="112" rx="8" fill="#f6b0c7" opacity="0.5" transform="rotate(-12 97 128)"/>
+    <rect x="104" y="68" width="78" height="112" rx="8" fill="#ffd1de" opacity="0.75" transform="rotate(8 143 124)"/>
+    <rect x="80" y="78" width="80" height="116" rx="9" fill="#fff1f5" stroke="#f54972" stroke-width="3"/>
+    <path d="M80 160l26-32 18 20 14-16 22 28z" fill="#f54972" opacity="0.75"/>
+    <circle cx="126" cy="112" r="14" fill="#ffe0a3"/>
+  </g>
+  <path d="M50 218h140M58 236h124M66 254h108" stroke="#ffc6d8" stroke-opacity="0.5" stroke-width="4" stroke-linecap="round"/>
+  <text x="120" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="18" font-weight="700" fill="#ffe9f0" letter-spacing="3">СЕЗОН</text>
+</svg>

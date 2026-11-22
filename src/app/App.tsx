@@ -57,6 +57,7 @@ export function App() {
               <Route path="changelog" element={<ChangelogPage />} />
               <Route path="community" element={<CommunityPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="shop" element={<ProfilePage />} />
               <Route path="user/:handle" element={<ProfilePage />} />
               <Route path="*" element={
                 <Stack align="flex-start">
