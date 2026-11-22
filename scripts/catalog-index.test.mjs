@@ -1,26 +1,22 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it } from 'vitest';
 import { catalogIndexVersion, parseCatalogIndex } from '../src/sources/catalogIndex.ts';
 import { publishCatalogIndex } from './catalog-index.mjs';
 
-const previousUrl = 'https://0n26.github.io/catalog-index.json';
-const hour = 60 * 60 * 1000;
 let directory, output;
 
 beforeEach(() => {
   directory = mkdtempSync(join(tmpdir(), 'catalog-index-test-'));
   output = join(directory, 'catalog-index.json');
-  vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 afterEach(() => {
   rmSync(directory, { recursive: true, force: true });
-  vi.restoreAllMocks();
 });
 
-function fixture({ previous, alter = (_, body) => Response.json(body) } = {}) {
+function fixture({ alter = (_, body) => Response.json(body) } = {}) {
   const left = Array.from({ length: 26 }, (_, i) => ({ id: i + 1,
     alias: `left-${i + 1}`, name: { main: `Left ${i + 1}` }, year: 2024,
   }));
@@ -30,10 +26,6 @@ function fixture({ previous, alter = (_, body) => Response.json(body) } = {}) {
     expect(credentials).toBe('omit');
     expect(signal).toBeInstanceOf(AbortSignal);
     const url = new URL(input);
-    if (url.href === previousUrl) {
-      calls.push('previous');
-      return previous ? Response.json(previous) : new Response(null, { status: 404 });
-    }
     const page = Number(url.searchParams.get('page'));
     const isLeft = url.hostname === 'anilibria.top';
     const rows = isLeft ? left : right;
@@ -46,17 +38,9 @@ function fixture({ previous, alter = (_, body) => Response.json(body) } = {}) {
     } : { data, state: { status: data.length ? 'ok' : 'fail', page, count: rows.length } };
     const key = `${isLeft ? 'aniliberty' : 'animevost'}:${page}`;
     calls.push(key);
-    return alter(key, body);
+    return alter(key, body, url);
   };
   return { left, right, fetcher, calls };
-}
-
-function priorIndex(age) {
-  return {
-    version: catalogIndexVersion,
-    generatedAt: Date.now() - age,
-    releases: [[{ alias: 'animevost:99', name: 'Old', year: 2020 }, { alias: 'aniliberty:old', name: 'Old', year: 2020 }]],
-  };
 }
 
 it('groups unique title and year matches across full sweeps, keeping ambiguous and unknown years separate', async () => {
@@ -86,7 +70,7 @@ it('groups unique title and year matches across full sweeps, keeping ambiguous a
     genres: ['Драма'], episodesTotal: 12, episodeDurationMinutes: 24,
   };
 
-  await publishCatalogIndex(output, undefined, fetcher);
+  await publishCatalogIndex(output, fetcher);
 
   expect(calls.slice(0, 2)).toEqual(['aniliberty:1', 'animevost:1']);
   expect(calls.filter((call) => call.startsWith('aniliberty'))).toEqual(['aniliberty:1', 'aniliberty:2']);
@@ -124,7 +108,7 @@ it('automatically pairs the full Fate slash titles without collapsing distinct r
   left[5].name.main = 'Fate/stay night';
   right[4].title = 'Судьба: Ночь схватки / Fate/stay night [Unlimited Blade Works] [1-12 из 12]';
 
-  await publishCatalogIndex(output, undefined, fetcher);
+  await publishCatalogIndex(output, fetcher);
 
   const { releases } = JSON.parse(readFileSync(output, 'utf8'));
   expect(releases.filter((release) => release.length > 1)).toEqual(
@@ -155,7 +139,7 @@ it('pairs curated aliases even when names or years differ, with the primary memb
   Object.assign(left[11], { name: { main: 'Судьба/Странная подделка', english: 'Fate/strange Fake' }, year: 2026 });
   Object.assign(right[1], { title: 'Судьба: Странная подделка / Fate/strange Fake [1-13 из 13]', year: '2025' });
 
-  await publishCatalogIndex(output, undefined, fetcher);
+  await publishCatalogIndex(output, fetcher);
 
   const { releases } = JSON.parse(readFileSync(output, 'utf8'));
   expect(releases.filter((release) => release.length > 1).map((release) => release.map(({ alias }) => alias))).toEqual(
@@ -172,7 +156,7 @@ it('emits complete split releases once at their first member’s position, order
   left[5].alias = 'dungeon-ni-deai-wo-motomeru-no-wa-machigatteiru-no-darou-ka-iv';
   right[1].id = 2822;
 
-  await publishCatalogIndex(output, undefined, fetcher);
+  await publishCatalogIndex(output, fetcher);
 
   const { releases } = JSON.parse(readFileSync(output, 'utf8'));
   expect(releases.slice(0, 4).map(([entry]) => entry.alias)).toEqual([
@@ -200,16 +184,34 @@ it('keeps available curated members single when a member is missing, even with e
   Object.assign(right[0], { id: 3410, title: left[0].name.main });
   Object.assign(right[1], { id: 1987, title: left[2].name.main });
 
-  await publishCatalogIndex(output, undefined, fetcher);
+  await publishCatalogIndex(output, fetcher);
 
   const { releases } = JSON.parse(readFileSync(output, 'utf8'));
   expect(releases).toHaveLength(left.length + right.length);
   expect(releases.every(([entry, ...others]) => !entry.episodeRange && !others.length)).toBe(true);
 });
 
-it.each(['truncated', 'duplicate', 'drifting count'])('does not publish an incomplete sweep (%s)', async (problem) => {
+it('collects a full AnimeVost snapshot when independently cached pages overlap', async () => {
+  let snapshot;
+  const { right, fetcher } = fixture({
+    alter(key, body, url) {
+      if (key === 'animevost:1') snapshot = url.searchParams.get('_snapshot');
+      if (key === 'animevost:2' && (!snapshot || url.searchParams.get('_snapshot') !== snapshot)) {
+        body.data[0].id = 24;
+      }
+      return Response.json(body);
+    },
+  });
+
+  await publishCatalogIndex(output, fetcher);
+
+  const { releases } = JSON.parse(readFileSync(output, 'utf8'));
+  expect(releases.flat().map(({ alias }) => alias).filter((alias) => alias.startsWith('animevost:')))
+    .toEqual(right.map(({ id }) => `animevost:${id}`));
+});
+
+it.each(['truncated', 'duplicate', 'drifting count'])('rejects an incomplete sweep and keeps the previous snapshot (%s)', async (problem) => {
   const { left, right, fetcher, calls } = fixture({
-    previous: priorIndex(8 * 24 * hour),
     alter(key, body) {
       if (key === 'animevost:3') {
         if (problem === 'truncated') body.data.pop();
@@ -222,11 +224,10 @@ it.each(['truncated', 'duplicate', 'drifting count'])('does not publish an incom
   left[0].name.main = right[0].title = right[48].title = 'Potential match';
   writeFileSync(output, 'old local index');
 
-  await publishCatalogIndex(output, previousUrl, fetcher);
+  await expect(publishCatalogIndex(output, fetcher)).rejects.toThrow(/animevost page 3:/);
 
   expect(calls).toContain('animevost:3');
-  expect(() => readFileSync(output)).toThrow(/ENOENT/);
-  expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('publishing without an index'));
+  expect(readFileSync(output, 'utf8')).toBe('old local index');
 });
 
 it('accepts a short public AnimeVost tail only after checking the exact next offset', async () => {
@@ -237,7 +238,7 @@ it('accepts a short public AnimeVost tail only after checking the exact next off
     },
   });
 
-  await publishCatalogIndex(output, undefined, fetcher);
+  await publishCatalogIndex(output, fetcher);
 
   expect(calls).toContain('animevost:50');
   const { releases } = JSON.parse(readFileSync(output, 'utf8'));
@@ -257,55 +258,8 @@ it('retries a transient server error without publishing a partial index', async 
     },
   });
 
-  await publishCatalogIndex(output, undefined, fetcher);
+  await publishCatalogIndex(output, fetcher);
 
   const { releases } = JSON.parse(readFileSync(output, 'utf8'));
   expect(releases).toHaveLength(left.length + right.length);
-  expect(console.warn).not.toHaveBeenCalled();
-});
-
-it('reuses a recent published index without fetching either provider', async () => {
-  const previous = priorIndex(hour);
-  previous.releases[0][1].searchName = 'Another title';
-  const { fetcher, calls } = fixture({ previous });
-
-  await publishCatalogIndex(output, previousUrl, fetcher);
-
-  expect(calls).toEqual(['previous']);
-  expect(JSON.parse(readFileSync(output, 'utf8'))).toEqual(previous);
-});
-
-it('does not reuse a recent version-one index', async () => {
-  const { fetcher, calls } = fixture({ previous: { ...priorIndex(hour), version: 1 } });
-
-  await publishCatalogIndex(output, previousUrl, fetcher);
-
-  expect(calls).toContain('animevost:3');
-  expect(JSON.parse(readFileSync(output, 'utf8')).version).toBe(catalogIndexVersion);
-});
-
-it('does not reuse a recent index missing one provider', async () => {
-  const previous = priorIndex(hour);
-  previous.releases[0].pop();
-  const { fetcher, calls, left, right } = fixture({ previous });
-
-  await publishCatalogIndex(output, previousUrl, fetcher);
-
-  expect(calls).toContain('animevost:3');
-  const { releases } = JSON.parse(readFileSync(output, 'utf8'));
-  expect(releases).toHaveLength(left.length + right.length);
-});
-
-it('keeps the complete, unchanged older index when only one provider fails', async () => {
-  const previous = priorIndex(24 * hour);
-  const { fetcher, calls } = fixture({ previous,
-    alter: (key, body) => key === 'animevost:3' ? new Response(null, { status: 503 }) : Response.json(body),
-  });
-
-  await publishCatalogIndex(output, previousUrl, fetcher);
-
-  expect(calls).toContain('aniliberty:2');
-  expect(calls).toContain('animevost:3');
-  expect(JSON.parse(readFileSync(output, 'utf8'))).toEqual(previous);
-  expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('keeping the previous complete index'));
 });

@@ -7,7 +7,6 @@ import { positiveInteger } from '../src/sources/values.ts';
 
 const pageSize = 24;
 const requestTimeout = 15_000;
-const hour = 60 * 60 * 1000;
 const providers = {
   aniliberty: {
     create: createAniLiberty,
@@ -77,10 +76,13 @@ async function readPage(url, fetcher, signal) {
 
 async function sweep(provider, fetcher, signal) {
   let rawCount, rawTotal, rawUrl;
+  const snapshot = String(Date.now());
   // The browse adapters discard malformed and duplicate rows; compare their output with the raw pagination.
   const source = provider.create(async (url) => {
     rawUrl = new URL(url);
-    const { response, body } = await readPage(url, fetcher, signal);
+    // Cached AnimeVost pages can come from different versions of the latest-release list.
+    if (source.key === 'animevost') rawUrl.searchParams.set('_snapshot', snapshot);
+    const { response, body } = await readPage(rawUrl, fetcher, signal);
     rawCount = Array.isArray(body?.data) ? body.data.length : undefined;
     rawTotal = provider.total(body, Number(rawUrl.searchParams.get('page')));
     return response;
@@ -214,46 +216,8 @@ async function createIndex(fetcher) {
   }
 }
 
-async function readPrevious(url, fetcher) {
-  if (!url) return;
-  try {
-    const response = await fetcher(url, {
-      cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(requestTimeout),
-    });
-    if (!response.ok) return;
-    const index = parseCatalogIndex(await response.json());
-    if (!index) return;
-    const seen = new Set();
-    for (const release of index.releases) {
-      for (const { alias } of release) {
-        const provider = alias.split(':', 1)[0];
-        if (!Object.hasOwn(providers, provider)) return;
-        seen.add(provider);
-      }
-    }
-    if (seen.size === Object.keys(providers).length) {
-      return { version: catalogIndexVersion, generatedAt: index.generatedAt, releases: index.releases };
-    }
-  } catch {
-    // Missing or unreadable history does not prevent a full fresh scan.
-  }
-}
-
-export async function publishCatalogIndex(output, previousUrl, fetcher = globalThis.fetch) {
-  const previous = await readPrevious(previousUrl, fetcher);
-  let index = previous;
-  if (!index || Date.now() - index.generatedAt >= 20 * hour) {
-    try {
-      index = await createIndex(fetcher);
-    } catch (error) {
-      if (!previous || Date.now() - previous.generatedAt >= 7 * 24 * hour) {
-        await rm(output, { force: true });
-        console.warn(`::warning::Catalog index sweep failed (${error.message}); publishing without an index.`);
-        return;
-      }
-      console.warn(`::warning::Catalog index sweep failed (${error.message}); keeping the previous complete index.`);
-    }
-  }
+export async function publishCatalogIndex(output, fetcher = globalThis.fetch) {
+  const index = await createIndex(fetcher);
 
   await mkdir(dirname(output), { recursive: true });
   const temporary = `${output}.${process.pid}.tmp`;
@@ -266,7 +230,7 @@ export async function publishCatalogIndex(output, previousUrl, fetcher = globalT
 }
 
 if (import.meta.main) {
-  const [, , output, previousUrl] = process.argv;
-  if (!output) throw new Error('Usage: node scripts/catalog-index.mjs <output> [previous-index-url]');
-  await publishCatalogIndex(output, previousUrl);
+  const [, , output] = process.argv;
+  if (!output) throw new Error('Usage: node scripts/catalog-index.mjs <output>');
+  await publishCatalogIndex(output);
 }
