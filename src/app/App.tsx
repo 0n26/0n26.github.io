@@ -16,6 +16,7 @@ const AboutPage = lazy(() => import('../features/about/AboutPage').then(m => ({ 
 const CommunityPage = lazy(() => import('../features/community/CommunityPage').then(m => ({ default: m.CommunityPage })));
 const ProfilePage = lazy(() => import('../features/community/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const ShopPage = lazy(() => import('../features/community/ShopPage').then(m => ({ default: m.ShopPage })));
+const RpgPage = lazy(() => import('../features/community/RpgPage').then(m => ({ default: m.RpgPage })));
 
 export function App() {
   const watch = useMatch('/anime/:source/:alias');
@@ -40,6 +41,7 @@ export function App() {
                 <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
                 <NavLink to="/community" className={styles.navLink}>Сообщество</NavLink>
                 <NavLink to="/shop" className={styles.navLink}>Магазин</NavLink>
+                <NavLink to="/arena" className={styles.navLink}>Арена</NavLink>
                 <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
                 <NavLink to="/about" className={`${styles.navLink} ${styles.aboutLink}`}>О проекте</NavLink>
               </Group>
@@ -64,6 +66,7 @@ export function App() {
               <Route path="community" element={<CommunityPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="shop" element={<ShopPage />} />
+              <Route path="arena" element={<RpgPage />} />
               <Route path="user/:handle" element={<ProfilePage />} />
               <Route path="about" element={<AboutPage />} />
               <Route path="*" element={

@@ -9,6 +9,7 @@ import { ShopView } from './ShopView';
 import type { UserProfile } from './types';
 import { useCollectionState } from './useCollectionState';
 import { useCommunityRequest } from './useCommunityRequest';
+import { useRpgState } from './useRpgState';
 
 /** Отдельная страница магазина: паки и оформление без шапки профиля. */
 export function ShopPage() {
@@ -25,6 +26,7 @@ export function ShopPage() {
 
 function ShopContent({ profile }: { profile: UserProfile }) {
   const collection = useCollectionState(profile.handle, profile);
+  const rpg = useRpgState(profile.handle, profile);
 
   return (
     <div className={s.storeShell}>
@@ -38,7 +40,7 @@ function ShopContent({ profile }: { profile: UserProfile }) {
           </p>
           <div className={s.storeHeroActions}>
             <Button component={Link} to="/profile?tab=cards" size="sm" variant="light">Моя коллекция</Button>
-            <Button component={Link} to="/profile?tab=inventory" size="sm" variant="subtle">Инвентарь</Button>
+            <Button component={Link} to="/arena" size="sm" variant="subtle">Арена RPG</Button>
           </div>
         </div>
         <div className={s.storeBalance}>
@@ -55,6 +57,7 @@ function ShopContent({ profile }: { profile: UserProfile }) {
           <Link className={s.storeNavLink} to="/profile?tab=cards">Карточки</Link>
           <Link className={s.storeNavLink} to="/profile?tab=albums">Колоды</Link>
           <Link className={s.storeNavLink} to="/profile?tab=inventory">Инвентарь</Link>
+          <Link className={s.storeNavLink} to="/arena">Арена RPG</Link>
           <Link className={s.storeNavLink} to="/profile?tab=settings">Оформление сайта</Link>
           <p className={s.hint}>Пыль приходит за дубли и переплавку, алмазы — из паков и наград сообщества.</p>
         </aside>
@@ -63,7 +66,8 @@ function ShopContent({ profile }: { profile: UserProfile }) {
           <ShopView collectionState={collection.state} diamonds={collection.diamonds}
             dust={collection.dust} pity={collection.state.pity}
             packHistory={collection.state.packHistory} inventory={collection.inventory}
-            openPacks={collection.openPacks} buyCosmetic={collection.buyCosmetic} />
+            buyPackChoice={collection.buyPackChoice} claimPackChoice={collection.claimPackChoice}
+            addRpgCard={rpg.addCard} buyCosmetic={collection.buyCosmetic} />
         </div>
       </div>
     </div>

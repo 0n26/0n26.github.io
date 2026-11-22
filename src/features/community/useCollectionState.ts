@@ -309,6 +309,46 @@ export function useCollectionState(handle: string, profile: UserProfile) {
     return results;
   }, [profile.cards]);
 
+  /** Оплатить пак с выбором: три карточки показываются до того, как игрок заберёт одну. */
+  const buyPackChoice = useCallback((pack: ShopPack): boolean => {
+    const current = stateRef.current;
+    if (!canAfford(pack, 1, current)) return false;
+    commit((value) => ({
+      ...spend(value, pack.currency, pack.price),
+      pity: {
+        s: value.pity.s + 1,
+        x: value.pity.x + 1,
+        xl: value.pity.xl + 1,
+      },
+    }));
+    return true;
+  }, [commit]);
+
+  /** Добавить в коллекцию только ту карточку, которую выбрал игрок. */
+  const claimPackChoice = useCallback((selected: WatchCard): boolean => {
+    const current = stateRef.current;
+    const ownedIds = new Set([...profile.cards, ...current.extraCards].map((entry) => entry.id));
+    const duplicate = ownedIds.has(selected.id);
+    const result: PackResult = {
+      id: id('choice'), packId: 'choice', cardId: selected.id, rank: selected.rank,
+      at: new Date().toISOString(), duplicate, bonus: 'Выбор из трёх',
+    };
+    commit((value) => {
+      let next = { ...value, packHistory: [result, ...value.packHistory].slice(0, 40) };
+      if (duplicate) {
+        next = {
+          ...next,
+          dust: next.dust + Math.ceil(selected.dustValue / 2),
+          cardCopies: { ...next.cardCopies, [selected.id]: (next.cardCopies[selected.id] ?? selected.copies) + 1 },
+        };
+      } else {
+        next = { ...next, extraCards: [...next.extraCards, { ...selected, level: 0, copies: 1 }] };
+      }
+      return next;
+    });
+    return true;
+  }, [commit, profile.cards]);
+
   const reset = useCallback(() => {
     const next = emptyCollection(profile.diamonds, profile.dust);
     stateRef.current = next;
@@ -317,7 +357,7 @@ export function useCollectionState(handle: string, profile: UserProfile) {
 
   return {
     state, cards, inventory, equip, sharpenCard, upgradeItem, meltCard, awakenCard, toggleFlag,
-    buyCosmetic, openPacks, reset,
+    buyCosmetic, openPacks, buyPackChoice, claimPackChoice, reset,
     diamonds: state.diamonds,
     dust: state.dust,
   };

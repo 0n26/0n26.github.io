@@ -3,7 +3,9 @@ import type { CSSProperties } from 'react';
 import {
   Panel, RankBadge, Wallet, formatCount, formatShortDate, rankName, rankStyle,
 } from './components';
-import { pityLimits, pluralCards, pluralPacks, rankColors, rankIndex, slotTitles } from './logic';
+import { pityLimits, rankColors, rankIndex, slotTitles } from './logic';
+import { characterFromCard, createCard, hashString, rarityFromLegacyRank } from './rpg';
+import type { RpgCard } from './rpg';
 import { communityRepository } from './repository';
 import type {
   CollectionState, InventoryItem, PackResult, ShopCatalog, ShopCosmetic, ShopPack, WatchCard,
@@ -19,11 +21,31 @@ interface ShopViewProps {
   pity: { s: number; x: number; xl: number };
   packHistory: readonly PackResult[];
   inventory: readonly InventoryItem[];
-  openPacks: (pack: ShopPack, quantity: number, catalog: readonly WatchCard[]) => readonly PackResult[];
+  buyPackChoice: (pack: ShopPack) => boolean;
+  claimPackChoice: (card: WatchCard) => boolean;
+  addRpgCard: (card: RpgCard) => void;
   buyCosmetic: (cosmetic: ShopCosmetic) => boolean;
 }
 
-const quantities = [1, 3, 5, 10] as const;
+interface PackChoice {
+  id: string;
+  watch: WatchCard;
+  rpg: RpgCard;
+}
+
+function pickThree(catalog: readonly WatchCard[], seed: number): PackChoice[] {
+  const shuffled = [...catalog].sort((a, b) => hashString(a.id + seed) - hashString(b.id + seed));
+  return shuffled.slice(0, 3).map((watch, index) => ({
+    id: `choice-${seed}-${index}`,
+    watch,
+    rpg: createCard({
+      id: `rpg-pack-${watch.id}-${seed}`,
+      character: characterFromCard(watch),
+      rarity: rarityFromLegacyRank(watch.rank),
+      seed: seed + index * 104729,
+    }),
+  }));
+}
 
 function currencyMark(currency: ShopPack['currency']): string {
   return currency === 'dust' ? '✧' : '◆';
@@ -34,7 +56,8 @@ function priceLabel(pack: Pick<ShopPack, 'price' | 'currency'>): string {
 }
 
 export function ShopView({
-  collectionState, diamonds, dust, pity, packHistory, inventory, openPacks, buyCosmetic,
+  collectionState, diamonds, dust, pity, packHistory, inventory,
+  buyPackChoice, claimPackChoice, addRpgCard, buyCosmetic,
 }: ShopViewProps) {
   const loadShop = useCallback((signal: AbortSignal) => communityRepository.getShop(signal), []);
   const loadCatalog = useCallback((signal: AbortSignal) => communityRepository.getCardCatalog(signal), []);
@@ -42,8 +65,8 @@ export function ShopView({
   const catalogRequest = useCommunityRequest<readonly WatchCard[]>(loadCatalog);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(1);
-  const [results, setResults] = useState<readonly PackResult[]>([]);
+  const [choices, setChoices] = useState<readonly PackChoice[]>([]);
+  const [chosenId, setChosenId] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -58,20 +81,31 @@ export function ShopView({
   const selected = packs.find((pack) => pack.id === selectedId) ?? packs[0] ?? null;
   const cardsById = useMemo(() => new Map(catalog.map((card) => [card.id, card])), [catalog]);
 
-  const affordable = selected ? canAfford(selected, quantity, collectionState) : false;
+  const affordable = selected ? canAfford(selected, 1, collectionState) : false;
 
   const handleOpen = () => {
-    if (!selected || opening) return;
-    const rolls = openPacks(selected, quantity, catalog);
-    if (rolls.length === 0) {
+    if (!selected || opening || catalog.length === 0) return;
+    if (!buyPackChoice(selected)) {
       setNotice('Не хватает валюты на открытие.');
       return;
     }
-    setNotice(`Открыто ${quantity} ${pluralPacks(quantity)} · ${rolls.length} ${pluralCards(rolls.length)}`);
-    setResults(rolls);
+    const seed = Date.now() + Math.floor(Math.random() * 100000);
+    setNotice(`${selected.name} открыт · выберите одну из трёх карточек.`);
+    setChoices(pickThree(catalog, seed));
+    setChosenId(null);
     setOpening(true);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setOpening(false), 950);
+    timer.current = setTimeout(() => setOpening(false), 650);
+  };
+
+  const handleClaim = () => {
+    const chosen = choices.find((choice) => choice.id === chosenId);
+    if (!chosen) return;
+    claimPackChoice(chosen.watch);
+    addRpgCard(chosen.rpg);
+    setNotice(`Забрана карточка «${chosen.watch.title}». Остальные две отправлены в пыль.`);
+    setChoices([]);
+    setChosenId(null);
   };
 
   const handleBuy = (cosmetic: ShopCosmetic) => {
@@ -92,7 +126,7 @@ export function ShopView({
     <div className={s.shopStack}>
       <Panel title="Магазин паков" subtitle="Выберите набор, проверьте гарантии и откройте его." action={<Wallet diamonds={diamonds} dust={dust} />}>
         <div className={s.shopIntro}>
-          <p className={s.shopLead}>Карточки падают взвешенно: обычные ранги встречаются часто, X — крайне редко. Гарантии срабатывают на 51-м, 200-м и 500-м паке.</p>
+          <p className={s.shopLead}>Каждый пак предлагает три случайные карточки — вы забираете только одну. Редкость определяет потенциал, а итоговые характеристики раскрываются отдельно за Token.</p>
           {notice && <p className={s.notice} role="status">{notice}</p>}
         </div>
 
@@ -100,7 +134,7 @@ export function ShopView({
           {packs.map((pack) => (
             <button key={pack.id} type="button" className={s.packCard}
               style={{ '--pack-accent': pack.accent } as CSSProperties}
-              aria-pressed={selected?.id === pack.id} onClick={() => { setSelectedId(pack.id); setQuantity(1); }}>
+              aria-pressed={selected?.id === pack.id} onClick={() => setSelectedId(pack.id)}>
               <span className={s.packArt}>
                 {pack.image && <img src={pack.image} alt="" loading="lazy" />}
                 {pack.featured && <span className={s.packFeatured}>Хит</span>}
@@ -108,7 +142,7 @@ export function ShopView({
               <span className={s.packName}>{pack.name}</span>
               <span className={s.packDescription}>{pack.description}</span>
               <span className={s.packFooter}>
-                <span>{pack.amount} {pluralCards(pack.amount)}</span>
+                <span>3 карточки на выбор</span>
                 <strong>{priceLabel(pack)}</strong>
               </span>
             </button>
@@ -120,21 +154,12 @@ export function ShopView({
         <Panel title={`Открытие · ${selected.name}`} subtitle={selected.note} action={<Wallet diamonds={diamonds} dust={dust} />}>
           <div className={s.openLayout}>
             <div className={s.openMain}>
-              <div className={s.quantityRow} role="group" aria-label="Количество паков">
-                <span className={s.detailLabel}>Сколько паков открыть</span>
-                {quantities.map((value) => (
-                  <button key={value} type="button" className={s.quantityButton}
-                    aria-pressed={quantity === value} onClick={() => setQuantity(value)}>
-                    ×{value}
-                  </button>
-                ))}
-              </div>
               <div className={s.openSummary}>
-                <span>Карточек: {selected.amount * quantity}</span>
-                <span>Стоимость: {priceLabel({ price: selected.price * quantity, currency: selected.currency })}</span>
+                <span>Вариантов на выбор: 3</span>
+                <span>Стоимость: {priceLabel(selected)}</span>
               </div>
               <button type="button" className={s.openButton} disabled={!affordable || opening} onClick={handleOpen}>
-                {opening ? 'Открываем…' : `Открыть ${quantity} ${pluralPacks(quantity)}`}
+                {opening ? 'Открываем…' : 'Открыть пак · выбрать одну'}
               </button>
               {!affordable && <p className={s.hint}>Не хватает валюты. Пыль можно собрать за дубли карточек.</p>}
 
@@ -231,33 +256,34 @@ export function ShopView({
         </div>
       </Panel>
 
-      {results.length > 0 && (
-        <div className={s.revealOverlay} role="status" aria-live="polite" onClick={() => setResults([])}>
-          <div className={s.revealPanel} onClick={(event) => event.stopPropagation()}>
+      {choices.length > 0 && (
+        <div className={s.revealOverlay} role="dialog" aria-modal="true" aria-label="Выбор карточки из пака">
+          <div className={s.revealPanel}>
             <div className={s.revealHead}>
               <div>
                 <span className={s.eyebrow}>Рулетка пака</span>
-                <h2 className={s.revealTitle}>{opening ? 'Карточки вылетают…' : 'Что выпало'}</h2>
+                <h2 className={s.revealTitle}>{opening ? 'Карточки вылетают…' : 'Выберите одну карточку'}</h2>
+                <p className={s.revealLead}>Остальные две будут переплавлены в пыль. Нажмите на карточку, чтобы забрать её.</p>
               </div>
-              <button type="button" className={s.revealClose} onClick={() => setResults([])} aria-label="Закрыть">×</button>
             </div>
             <div className={s.revealCards}>
-              {results.map((entry, index) => {
-                const card = cardsById.get(entry.cardId);
-                return (
-                  <div key={entry.id} className={s.revealCard} style={{ ...rankStyle(entry.rank), animationDelay: `${index * 70}ms` }}
-                    data-rank={entry.rank}>
-                    {card && <img src={card.image} alt="" />}
-                    <span className={s.rankBadge}>{entry.rank}</span>
-                    <span className={s.revealCardName}>{card?.title ?? 'Карточка'}</span>
-                    <span className={s.revealCardNote}>
-                      {entry.duplicate ? 'дубль' : 'новая'}{entry.bonus ? ` · ${entry.bonus}` : ''}
-                    </span>
-                  </div>
-                );
-              })}
+              {choices.map((choice, index) => (
+                <button key={choice.id} type="button"
+                  className={s.revealCard} style={{ ...rankStyle(choice.watch.rank), animationDelay: `${index * 70}ms` }}
+                  data-rank={choice.watch.rank} data-selected={chosenId === choice.id}
+                  aria-pressed={chosenId === choice.id} onClick={() => setChosenId(choice.id)}>
+                  <img src={choice.watch.image} alt="" />
+                  <span className={s.rankBadge}>{choice.watch.rank}</span>
+                  <span className={s.revealCardName}>{choice.watch.title}</span>
+                  <span className={s.revealCardNote}>
+                    {rarityFromLegacyRank(choice.watch.rank)} · {choice.rpg.revealed ? 'изучена' : 'не изучена'}
+                  </span>
+                </button>
+              ))}
             </div>
-            <button type="button" className={s.primaryAction} onClick={() => setResults([])}>Забрать карточки</button>
+            <button type="button" className={s.primaryAction} disabled={!chosenId || opening} onClick={handleClaim}>
+              Забрать выбранную карточку
+            </button>
           </div>
         </div>
       )}

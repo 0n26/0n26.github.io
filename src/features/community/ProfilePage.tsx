@@ -175,6 +175,11 @@ function ProfileContent({ profile, active, linkFor }: { profile: UserProfile; ac
             <Link className={s.panelLink} to="/shop">Открыть магазин →</Link>
           </Panel>
 
+          <Panel title="Карточная RPG" subtitle="Раскрывайте характеристики, собирайте отряд и сражайтесь на арене.">
+            <p className={s.hint}>Token тратятся на раскрытие карточек, уровни и навыки. Редкость задаёт потенциал, но каждая карточка уникальна.</p>
+            <Link className={s.panelLink} to="/arena">Открыть арену →</Link>
+          </Panel>
+
           <Panel title="Статистика">
             <div className={s.statGrid}>
               <Stat value={formatCount(profile.stats.episodes)} label="Серий просмотрено" />
@@ -240,6 +245,7 @@ function ProfileHeader({ profile, linkFor, rankTitle }: {
           <Button component={Link} to={linkFor('cards')} size="sm" variant="light">Карточки</Button>
           <Button component={Link} to={linkFor('albums')} size="sm" variant="light">Колоды</Button>
           <Button component={Link} to={linkFor('inventory')} size="sm" variant="light">Инвентарь</Button>
+          <Button component={Link} to="/arena" size="sm" variant="light">Арена</Button>
         </div>
       </div>
     </div>
