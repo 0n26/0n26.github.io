@@ -1,15 +1,17 @@
 import { Badge, Group, Loader, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useCallback } from 'react';
 import { Link } from 'react-router';
-import type { AnimeSource, AnimeTitle, Franchise } from '../../sources/source';
+import type { ResolvedTitle, TitleAccess } from '../../catalog/catalog';
+import type { Franchise } from '../../sources/source';
 import { ReleaseCard } from './ReleaseCard';
+import { titleHref } from './titleLinks';
 import { useSourceRequest } from './useSourceRequest';
 import styles from './TitlePage.module.css';
 
-function Chronology({ franchise, currentAlias, routePrefix }: {
+function Chronology({ franchise, currentAlias, sourceKey }: {
   franchise: Franchise;
   currentAlias: string;
-  routePrefix: string;
+  sourceKey: string;
 }) {
   return (
     <div>
@@ -17,7 +19,7 @@ function Chronology({ franchise, currentAlias, routePrefix }: {
       <ol className={styles.chronology}>
         {franchise.releases.map((release) => (
           <li key={release.alias} aria-current={release.alias === currentAlias ? 'page' : undefined}>
-            <Link to={`${routePrefix}/${encodeURIComponent(release.alias)}`} className={styles.chronologyLink}>
+            <Link to={titleHref(sourceKey, release.alias)} className={styles.chronologyLink}>
               {release.name}
             </Link>
             {release.year && <Text span size="sm" c="dimmed"> · {release.year}</Text>}
@@ -29,10 +31,10 @@ function Chronology({ franchise, currentAlias, routePrefix }: {
   );
 }
 
-export function RelatedSections({ getRelated, title, routePrefix }: {
-  getRelated: NonNullable<AnimeSource['getRelated']>;
-  title: AnimeTitle;
-  routePrefix: string;
+export function RelatedSections({ getRelated, title, sourceKey }: {
+  getRelated: NonNullable<TitleAccess['getRelated']>;
+  title: ResolvedTitle;
+  sourceKey: string;
 }) {
   const load = useCallback((signal: AbortSignal) => getRelated(title, signal), [getRelated, title]);
   const request = useSourceRequest(load);
@@ -51,7 +53,7 @@ export function RelatedSections({ getRelated, title, routePrefix }: {
         <section aria-labelledby="similar-heading">
           <Title order={2} size="h3" id="similar-heading" mb="sm">Похожее</Title>
           <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, md: 6 }} spacing="md">
-            {similar.map((entry) => <ReleaseCard key={entry.alias} to={`${routePrefix}/${encodeURIComponent(entry.alias)}`} entry={entry} />)}
+            {similar.map((entry) => <ReleaseCard key={entry.alias} to={titleHref(sourceKey, entry.alias)} entry={entry} />)}
           </SimpleGrid>
         </section>
       )}
@@ -63,7 +65,7 @@ export function RelatedSections({ getRelated, title, routePrefix }: {
           {franchises.length > 0 ? (
             <Stack gap="md">
               {franchises.map((franchise) => (
-                <Chronology key={franchise.id} franchise={franchise} currentAlias={title.alias} routePrefix={routePrefix} />
+                <Chronology key={franchise.id} franchise={franchise} currentAlias={title.alias} sourceKey={sourceKey} />
               ))}
             </Stack>
           ) : (
