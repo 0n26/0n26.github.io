@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
-const releaseHeading = /^## \[?\d+\.\d+\.\d+\b/m;
+const releaseHeading = /^## \[?(\d+\.\d+\.\d+)\b/m;
 const breakingChange = /^BREAKING[ -]CHANGE:[ \t]+(\S[^\r\n]*)/m;
 const sections = new Map([
   ['feat', 'Возможности'], ['fix', 'Исправления'], ['perf', 'Производительность'],
@@ -21,16 +21,33 @@ export function nextVersion(base, title, body) {
   return sections.has(change[1]) ? `${major}.${minor}.${patch + 1}` : base;
 }
 
-function releaseEntry(repository, base, version, { title, body, date, number }) {
+function releaseNote(repository, { title, body, number, sha }) {
   const url = `https://github.com/${repository}`;
   const type = title.match(/^[a-z]+/)[0];
   const subject = title.slice(title.indexOf(':') + 2);
   const migration = breakingChange.exec(body)?.[1];
   const describe = [describeBody(body), migration && `**Несовместимость:** ${migration}`].filter(Boolean).join('\n\n');
-  const entry = `## [${version}](${url}/compare/v${base}...v${version}) (${date.slice(0, 10)})\n\n` +
-    `### ${sections.get(type) ?? 'Несовместимые изменения'}\n\n` +
-    `* ${subject} ([#${number}](${url}/pull/${number}))`;
-  return describe ? `${entry}\n\n${describe.replace(/^(?=.)/gm, '  ')}` : entry;
+  const link = number ? `[#${number}](${url}/pull/${number})` : `[\`${sha.slice(0, 7)}\`](${url}/commit/${sha})`;
+  const entry = `* ${subject} (${link})`;
+  const section = sections.get(type) ?? (migration || /^[^:]+!:/.test(title) ? 'Несовместимые изменения' :
+    type === 'docs' ? 'Документация' : 'Внутренние изменения');
+  return [section, describe ? `${entry}\n\n${describe.replace(/^(?=.)/gm, '  ')}` : entry];
+}
+
+function releaseEntry(repository, base, version, date, changes) {
+  const groups = new Map();
+  for (const change of changes) {
+    const [section, note] = releaseNote(repository, change);
+    if (groups.has(section)) groups.get(section).push(note);
+    else groups.set(section, [note]);
+  }
+  const heading = `## [${version}](https://github.com/${repository}/compare/v${base}...v${version}) (${date.slice(0, 10)})`;
+  return `${heading}\n\n${Array.from(groups, ([section, notes]) => `### ${section}\n\n${notes.join('\n\n')}`).join('\n\n')}`;
+}
+
+function isChangelogSync(title, body) {
+  return title === 'docs(changelog): синхронизировать историю релизов' &&
+    /^Копия changelog\.md из тега v\d+\.\d+\.\d+\. Без повышения версии\.(?:\r?\n|$)/.test(body);
 }
 
 function metadata(read, version, changelog) {
@@ -100,16 +117,22 @@ function publish(repository) {
   git('merge-base', '--is-ancestor', source, 'HEAD');
   let changelog = git('show', `${ref}:changelog.md`) + '\n';
   const revisions = git('rev-list', '--first-parent', '--reverse', `${source}..HEAD`);
+  const changes = [];
   for (const sha of revisions ? revisions.split('\n') : []) {
     const [subject, date, ...lines] = git('show', '-s', '--format=%s%n%cI%n%b', sha).split('\n');
     const pr = /^(.*) \(#([1-9]\d*)\)$/.exec(subject);
     const title = pr?.[1] ?? subject;
     const body = lines.join('\n');
+    if (isChangelogSync(title, body)) continue;
+    changes.push({ title, body, number: pr?.[2], sha });
     const next = nextVersion(version, title, body);
     if (next === version) continue;
     if (!pr) throw new Error(`В сообщении squash-коммита ${sha} нет номера PR.`);
 
-    const entry = releaseEntry(repository, version, next, { title, body, date, number: pr[2] });
+    const entry = releaseEntry(repository, version, next, date, changes);
+    // Keep reviewed corrections in main, but never replace newer history with a stale copy.
+    const reviewed = git('show', `${sha}:changelog.md`) + '\n';
+    if (reviewed.match(releaseHeading)?.[1] === version) changelog = reviewed;
     const start = changelog.search(releaseHeading);
     if (start < 0) throw new Error(`В теге ${tag} нет истории релизов.`);
     changelog = `${changelog.slice(0, start)}${entry}\n\n${changelog.slice(start)}`;
@@ -118,6 +141,7 @@ function publish(repository) {
     git('-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', 'origin', `${commit}:refs/tags/${tag}`);
     command('gh', ['release', 'create', tag, '--verify-tag', '--latest', '--title', tag, '--notes-file', '-'], { input: entry });
     version = next;
+    changes.length = 0;
   }
   appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`);
 }
