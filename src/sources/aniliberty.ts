@@ -1,9 +1,12 @@
+import { catalogEntries } from './catalogEntries.ts';
 import { catalogFilterValues, normalizeCatalogYears } from './catalogFilterValues.ts';
+import type { IndexScan, ReadIndexJson } from './indexSource.ts';
 import type { AnimeSource, AnimeTitle, CatalogEntry, CatalogOption, Episode, Franchise, ScheduleEntry } from './source';
 import { positiveInteger, record, text, titleText } from './values.ts';
 
 const ORIGIN = 'https://anilibria.top';
 const API = `${ORIGIN}/api/v1/anime`;
+const PAGE_SIZE = 24;
 const QUALITY_LEVELS = [480, 720, 1080] as const;
 const IMAGE_SIZES = ['preview', 'src', 'thumbnail'] as const;
 const ALIAS = /^[a-z0-9_-]+$/i;
@@ -123,6 +126,46 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
   };
 }
 
+function catalogUrl(page: number): URL {
+  const url = new URL(`${API}/catalog/releases`);
+  url.searchParams.set('limit', String(PAGE_SIZE));
+  url.searchParams.set('page', String(page));
+  return url;
+}
+
+function readCatalogPage(value: unknown) {
+  const body = record(value);
+  const pagination = record(record(body?.meta)?.pagination);
+  if (!body || !pagination || !Array.isArray(body.data)
+    || !positiveInteger(pagination.current_page) || !positiveInteger(pagination.total_pages)) {
+    throw new Error('AniLiberty: invalid catalog response');
+  }
+  const data: unknown[] = body.data;
+  return {
+    pagination,
+    page: pagination.current_page,
+    totalPages: pagination.total_pages,
+    rawCount: data.length,
+    items: catalogEntries(data, (row) => {
+      const release = record(row);
+      return release && catalogEntry(release);
+    }),
+  };
+}
+
+export function openAniLibertyIndex(readJson: ReadIndexJson): IndexScan {
+  return {
+    pageSize: PAGE_SIZE,
+    async readPage(page, signal) {
+      const { pagination, ...result } = readCatalogPage(await readJson(catalogUrl(page), signal));
+      if (pagination.per_page !== PAGE_SIZE || pagination.count !== result.rawCount || !positiveInteger(pagination.total)) {
+        throw new Error('AniLiberty: inconsistent pagination');
+      }
+      return { ...result, total: pagination.total };
+    },
+  };
+}
+
 function franchiseFrom(value: unknown): Franchise | undefined {
   const raw = record(value);
   const id = text(raw?.id);
@@ -206,7 +249,7 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
     name: 'AniLiberty',
 
     async getCatalog(query, page, signal, filters) {
-      const url = new URL(`${API}/catalog/releases`);
+      const url = catalogUrl(page);
       if (query) url.searchParams.set('f[search]', query);
       const genreIds = (filters?.genres ?? []).filter(positiveInteger);
       if (genreIds.length) url.searchParams.set('f[genres]', genreIds.join(','));
@@ -223,24 +266,8 @@ export function createAniLiberty(fetcher: typeof fetch = globalThis.fetch): Anim
       if (yearTo) url.searchParams.set('f[years][to_year]', String(yearTo));
       const ageRatings = knownValues(filters?.ageRatings, catalogFilterValues.ageRatings);
       if (ageRatings.length) url.searchParams.set('f[age_ratings]', ageRatings.join(','));
-      url.searchParams.set('limit', '24');
-      url.searchParams.set('page', String(page));
-
-      const body = record(await readJson(await fetcher(url, { signal, credentials: 'omit' })));
-      const pagination = record(record(body?.meta)?.pagination);
-      if (!body || !pagination || !Array.isArray(body.data)
-        || !positiveInteger(pagination.current_page) || !positiveInteger(pagination.total_pages)) {
-        throw new Error('AniLiberty: invalid catalog response');
-      }
-
-      const items = new Map<string, CatalogEntry>();
-      const releases: unknown[] = body.data;
-      for (const item of releases) {
-        const release = record(item);
-        const entry = release && catalogEntry(release);
-        if (entry) items.set(entry.alias, entry);
-      }
-      return { items: [...items.values()], page: pagination.current_page, totalPages: pagination.total_pages };
+      const result = readCatalogPage(await readJson(await fetcher(url, { signal, credentials: 'omit' })));
+      return { items: result.items, page: result.page, totalPages: result.totalPages };
     },
 
     async getCatalogFilters(signal) {

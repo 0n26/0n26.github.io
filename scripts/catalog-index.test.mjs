@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { catalogIndexVersion, parseCatalogIndex } from '../src/sources/catalogIndex.ts';
+import { indexedSources } from '../src/sources/index.ts';
 import { publishCatalogIndex } from './catalog-index.mjs';
 
 let directory, output;
@@ -123,6 +124,38 @@ it('matches formatting variants without dropping season or release markers', asy
     .toEqual(["W'z", "W'z"]);
 });
 
+it('pairs a third provider when the match is mutual, but keeps three-way matches separate in v2', async () => {
+  const { left, right, fetcher } = fixture();
+  left[0].name.main = 'Unique match';
+  left[1].name.main = right[0].title = 'Three-way match';
+  const third = {
+    source: {
+      key: 'third',
+      getCatalog() { throw new Error('The generator must not call the browser catalog'); },
+    },
+    openIndex() {
+      const items = [
+        { alias: 'one', name: 'Unique match', year: 2024 },
+        { alias: 'two', name: 'Three-way match', year: 2024 },
+      ];
+      return {
+        pageSize: items.length,
+        async readPage(page) {
+          return { page, total: items.length, totalPages: 1, rawCount: items.length, items };
+        },
+      };
+    },
+  };
+
+  await publishCatalogIndex(output, fetcher, [...indexedSources, third]);
+
+  const index = parseCatalogIndex(JSON.parse(readFileSync(output, 'utf8')));
+  expect(index.byAlias.get('third:one')?.map(({ alias }) => alias)).toEqual(['aniliberty:left-1', 'third:one']);
+  for (const alias of ['aniliberty:left-2', 'animevost:1', 'third:two']) {
+    expect(index.byAlias.get(alias)).toHaveLength(1);
+  }
+});
+
 it('automatically pairs the full Fate slash titles without collapsing distinct releases', async () => {
   const { left, right, fetcher } = fixture();
   const matches = [
@@ -241,13 +274,15 @@ it('collects a full AnimeVost snapshot when independently cached pages overlap',
     .toEqual(right.map(({ id }) => `animevost:${id}`));
 });
 
-it.each(['truncated', 'duplicate', 'drifting count'])('rejects an incomplete sweep and keeps the previous snapshot (%s)', async (problem) => {
+it.each(['truncated', 'duplicate', 'drifting count', 'invalid row', 'wrong page'])('rejects an incomplete sweep and keeps the previous snapshot (%s)', async (problem) => {
   const { left, right, fetcher, calls } = fixture({
     alter(key, body) {
       if (key === 'animevost:3') {
         if (problem === 'truncated') body.data.pop();
         if (problem === 'duplicate') body.data[0].id = 1;
         if (problem === 'drifting count') body.state.count++;
+        if (problem === 'invalid row') delete body.data[0].title;
+        if (problem === 'wrong page') body.state.page++;
       }
       return Response.json(body);
     },
@@ -258,6 +293,19 @@ it.each(['truncated', 'duplicate', 'drifting count'])('rejects an incomplete swe
   await expect(publishCatalogIndex(output, fetcher)).rejects.toThrow(/animevost page 3:/);
 
   expect(calls).toContain('animevost:3');
+  expect(readFileSync(output, 'utf8')).toBe('old local index');
+});
+
+it('rejects an AniLiberty page whose reported size disagrees with its rows', async () => {
+  const { fetcher } = fixture({
+    alter(key, body) {
+      if (key === 'aniliberty:2') body.meta.pagination.count++;
+      return Response.json(body);
+    },
+  });
+  writeFileSync(output, 'old local index');
+
+  await expect(publishCatalogIndex(output, fetcher)).rejects.toThrow(/aniliberty page 2:/);
   expect(readFileSync(output, 'utf8')).toBe('old local index');
 });
 

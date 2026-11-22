@@ -1,6 +1,6 @@
-import type { loadCatalogIndex } from '../sources/catalogIndex';
+import type { CatalogIndex } from '../sources/catalogIndex';
 import { hasCatalogFilters } from '../sources/source';
-import type { AnimeSource, AnimeTitle, CatalogEntry, CatalogFilters, CatalogFilterOptions, CatalogOption, CatalogResult, EpisodeRange, RelatedInfo, ScheduleEntry } from '../sources/source';
+import type { AnimeSource, AnimeTitle, CatalogEntry, CatalogFilters, CatalogFilterOptions, CatalogResult, EpisodeRange, RelatedInfo, ScheduleEntry } from '../sources/source';
 import { catalogSourceKey, catalogTitleAlias, parseVoiceAlias, qualifyTitle } from './titleRef';
 import type { TitleRef } from './titleRef';
 
@@ -40,11 +40,13 @@ async function loadTitle(source: AnimeSource, alias: string, signal: AbortSignal
 
 export function createCatalog(
   sources: readonly AnimeSource[],
-  loadIndex: typeof loadCatalogIndex,
+  loadIndex: () => Promise<CatalogIndex | null>,
   directSources: readonly AnimeSource[] = [],
 ) {
   const catalogSources = new Map(sources.map((source) => [source.key, source]));
   const availableSources = [...catalogSources.values()];
+  // Catalog URLs carry provider-local genre IDs; both operations must use the same provider.
+  const filterSource = catalogSources.get('aniliberty');
   const name = 'Общий каталог';
 
   const titles = new Map<string, TitleAccess>();
@@ -104,7 +106,7 @@ export function createCatalog(
       signal.throwIfAborted();
       const hasFilters = hasCatalogFilters(filters);
       const selectedSources = hasFilters
-        ? availableSources.filter((source) => source.getCatalogFilters)
+        ? filterSource?.getCatalogFilters ? [filterSource] : []
         : availableSources;
 
       if (!hasFilters) {
@@ -143,37 +145,18 @@ export function createCatalog(
     },
 
     async getCatalogFilters(signal: AbortSignal): Promise<CatalogFilterOptions> {
-      const sourcesWithFilters = availableSources.filter((source) => source.getCatalogFilters);
-      const settled = await Promise.allSettled(sourcesWithFilters.map((source) => source.getCatalogFilters!(signal)));
-      signal.throwIfAborted();
-      const loaded = settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-      if (loaded.length === 0) throw new Error('Catalog filter references unavailable');
-      const genres = new Map<number, string>();
-      const years = new Set<number>();
-      const options = {
-        types: new Map<string, CatalogOption>(),
-        publishStatuses: new Map<string, CatalogOption>(),
-        sorting: new Map<string, CatalogOption>(),
-        seasons: new Map<string, CatalogOption>(),
-        ageRatings: new Map<string, CatalogOption>(),
-      };
-      for (const result of loaded) {
-        for (const genre of result.genres) genres.set(genre.id, genre.name);
-        for (const year of result.years) years.add(year);
-        for (const key of Object.keys(options) as (keyof typeof options)[]) {
-          for (const option of result[key]) options[key].set(option.value, option);
+      try {
+        signal.throwIfAborted();
+        if (filterSource?.getCatalogFilters) {
+          const options = await filterSource.getCatalogFilters(signal);
+          signal.throwIfAborted();
+          return options;
         }
+      } catch (error) {
+        signal.throwIfAborted();
+        throw new Error('Catalog filter references unavailable', { cause: error });
       }
-      return {
-        genres: [...genres].map(([id, name]) => ({ id, name })),
-        years: [...years].sort((a, b) => b - a),
-        types: [...options.types.values()],
-        publishStatuses: [...options.publishStatuses.values()],
-        sorting: [...options.sorting.values()],
-        seasons: [...options.seasons.values()],
-        ageRatings: [...options.ageRatings.values()],
-        incomplete: loaded.length < settled.length || loaded.some((result) => result.incomplete) || undefined,
-      };
+      throw new Error('Catalog filter references unavailable');
     },
 
     async getSchedule(signal: AbortSignal): Promise<readonly ScheduleEntry[]> {

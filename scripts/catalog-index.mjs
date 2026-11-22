@@ -1,36 +1,11 @@
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { createAniLiberty } from '../src/sources/aniliberty.ts';
-import { createAnimeVost } from '../src/sources/animevost.ts';
+import { qualifyTitle } from '../src/catalog/titleRef.ts';
 import { catalogIndexVersion, parseCatalogIndex } from '../src/sources/catalogIndex.ts';
+import { indexedSources } from '../src/sources/index.ts';
 import { positiveInteger } from '../src/sources/values.ts';
 
-const pageSize = 24;
 const requestTimeout = 15_000;
-const providers = {
-  aniliberty: {
-    create: createAniLiberty,
-    total(body) {
-      const pagination = body?.meta?.pagination;
-      if (pagination?.per_page === pageSize && pagination.count === body.data?.length) return pagination.total;
-    },
-  },
-  animevost: {
-    create: createAnimeVost,
-    total: (body, page) => body?.state?.page === page
-      && (body.state.status === 'ok' || (body.state.status === 'fail' && body.data?.length === 0))
-      ? body.state.count : undefined,
-    async atEnd(url, offset, total, fetcher, signal) {
-      // The API count can include entries absent from the public list. Check the first missing offset.
-      url.searchParams.set('quantity', '1');
-      const page = offset + 1;
-      url.searchParams.set('page', String(page));
-      const { body } = await readPage(url, fetcher, signal);
-      return body?.state?.status === 'fail' && body.state.page === page
-        && body.state.count === total && Array.isArray(body.data) && body.data.length === 0;
-    },
-  },
-};
 
 // Matched by provider IDs where the release names, years, or episode boundaries disagree.
 const curatedReleases = [
@@ -69,29 +44,17 @@ async function readPage(url, fetcher, signal) {
         await response.body?.cancel();
         continue;
       }
-      if (!response.ok) return { response };
-      const body = await response.json();
-      response.json = async () => body;
-      return { response, body };
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
     } catch (error) {
       if (attempt || signal.aborted || !(timeout.aborted || error instanceof TypeError)) throw error;
     }
   }
 }
 
-async function sweep(provider, fetcher, signal) {
-  let rawCount, rawTotal, rawUrl;
-  const snapshot = String(Date.now());
-  // The browse adapters discard malformed and duplicate rows; compare their output with the raw pagination.
-  const source = provider.create(async (url) => {
-    rawUrl = new URL(url);
-    // Cached AnimeVost pages can come from different versions of the latest-release list.
-    if (source.key === 'animevost') rawUrl.searchParams.set('_snapshot', snapshot);
-    const { response, body } = await readPage(rawUrl, fetcher, signal);
-    rawCount = Array.isArray(body?.data) ? body.data.length : undefined;
-    rawTotal = provider.total(body, Number(rawUrl.searchParams.get('page')));
-    return response;
-  });
+async function sweep({ source, openIndex }, readJson, signal) {
+  const { pageSize, readPage, confirmEnd } = openIndex(readJson);
+  if (!positiveInteger(pageSize)) throw new Error(`${source.key}: invalid index page size`);
 
   const entries = [];
   const aliases = new Set();
@@ -99,25 +62,25 @@ async function sweep(provider, fetcher, signal) {
   let total, totalPages = 1;
   for (let page = 1; page <= totalPages; page++) {
     const label = `${source.key} page ${page}`;
-    rawCount = rawTotal = rawUrl = undefined;
+    signal.throwIfAborted();
     let result;
     try {
-      result = await source.getCatalog('', page, signal);
+      result = await readPage(page, signal);
     } catch (error) {
       throw new Error(`${label}: ${error instanceof SyntaxError ? 'invalid JSON' : error.message}`);
     }
     if (page === 1) {
-      total = rawTotal;
+      total = result.total;
       totalPages = result.totalPages;
     }
     const expectedCount = Math.min(pageSize, total - entries.length);
-    if (!positiveInteger(total) || rawTotal !== total || Math.ceil(total / pageSize) !== totalPages
-      || result.page !== page || result.totalPages !== totalPages || result.incomplete
-      || !Number.isInteger(rawCount) || rawCount > expectedCount || result.items.length !== rawCount) {
+    if (!positiveInteger(total) || result.total !== total || Math.ceil(total / pageSize) !== totalPages
+      || result.page !== page || result.totalPages !== totalPages
+      || !Number.isInteger(result.rawCount) || result.rawCount > expectedCount || result.items.length !== result.rawCount) {
       throw new Error(`${label}: inconsistent pagination or incomplete rows`);
     }
-    const shortPage = rawCount < expectedCount;
-    if (shortPage && !(await provider.atEnd?.(rawUrl, entries.length + rawCount, total, fetcher, signal))) {
+    const shortPage = result.rawCount < expectedCount;
+    if (shortPage && !(await confirmEnd?.(entries.length + result.rawCount, total, signal))) {
       throw new Error(`${label}: unexpectedly short page`);
     }
     for (const { alias, name, alternateName, searchName, year, poster, id,
@@ -126,7 +89,7 @@ async function sweep(provider, fetcher, signal) {
       aliases.add(alias);
       if (id !== undefined) ids.add(id);
       entries.push({
-        alias: `${source.key}:${alias}`, name, alternateName, searchName, year, poster,
+        alias: qualifyTitle(source.key, alias), name, alternateName, searchName, year, poster,
         ageRating, publishStatus, type, season, genres, episodesTotal, episodeDurationMinutes,
       });
     }
@@ -155,13 +118,17 @@ function indexNames(entries) {
   return index;
 }
 
-function uniqueMatch(entry, index) {
+function uniqueMatch(entry, indexes, provider) {
   let match;
-  for (const key of nameKeys(entry)) {
-    const candidate = index.get(key);
-    if (candidate === undefined) continue;
-    if (candidate === null || (match && match !== candidate)) return;
-    match = candidate;
+  const keys = nameKeys(entry);
+  for (const [other, index] of indexes.entries()) {
+    if (other === provider) continue;
+    for (const key of keys) {
+      const candidate = index.get(key);
+      if (candidate === undefined) continue;
+      if (candidate === null || (match && match.entry !== candidate)) return;
+      match ??= { entry: candidate, provider: other };
+    }
   }
   return match;
 }
@@ -197,10 +164,11 @@ function groupReleases(catalogs) {
         }
         continue;
       }
-      const match = uniqueMatch(entry, indexes[1 - provider]);
-      if (match && !curated.has(match.alias) && uniqueMatch(match, indexes[provider]) === entry) {
-        releases.push([entry, match]);
-        emitted.add(match.alias);
+      const match = uniqueMatch(entry, indexes, provider);
+      // The v2 snapshot allows pairs or manually verified split seasons, not automatic groups of 3+.
+      if (match && !curated.has(match.entry.alias) && uniqueMatch(match.entry, indexes, match.provider)?.entry === entry) {
+        releases.push([entry, match.entry]);
+        emitted.add(match.entry.alias);
       } else {
         releases.push([entry]);
       }
@@ -209,11 +177,12 @@ function groupReleases(catalogs) {
   return releases;
 }
 
-async function createIndex(fetcher) {
+async function createIndex(fetcher, sources) {
   const controller = new AbortController();
   try {
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(240_000)]);
-    const catalogs = await Promise.all(Object.values(providers).map((provider) => sweep(provider, fetcher, signal)));
+    const readJson = (url, signal) => readPage(url, fetcher, signal);
+    const catalogs = await Promise.all(sources.map((source) => sweep(source, readJson, signal)));
     const index = { version: catalogIndexVersion, generatedAt: Date.now(), releases: groupReleases(catalogs) };
     if (!parseCatalogIndex(index)) throw new Error('invalid generated catalog index');
     return index;
@@ -222,8 +191,8 @@ async function createIndex(fetcher) {
   }
 }
 
-export async function publishCatalogIndex(output, fetcher = globalThis.fetch) {
-  const index = await createIndex(fetcher);
+export async function publishCatalogIndex(output, fetcher = globalThis.fetch, sources = indexedSources) {
+  const index = await createIndex(fetcher, sources);
 
   await mkdir(dirname(output), { recursive: true });
   const temporary = `${output}.${process.pid}.tmp`;
