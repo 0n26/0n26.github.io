@@ -141,7 +141,7 @@ it('routes multi-genre filters only to providers with filter support', async () 
   });
 });
 
-it('treats every new filter as active and merges reference options', async () => {
+it('keeps filters scoped to AniLiberty even when another adapter has overlapping genre IDs', async () => {
   const a: AnimeSource = {
     ...provider('aniliberty'),
     getCatalogFilters: vi.fn(async () => ({
@@ -154,7 +154,18 @@ it('treats every new filter as active and merges reference options', async () =>
       ageRatings: [{ value: 'R16_PLUS', label: '16+' }],
     })),
   };
-  const b = provider('animevost');
+  const b = {
+    ...provider('another-source'),
+    getCatalogFilters: vi.fn(async () => ({
+      genres: [{ id: 1, name: 'Экшен' }],
+      years: [],
+      types: [],
+      publishStatuses: [],
+      sorting: [],
+      seasons: [],
+      ageRatings: [],
+    })),
+  };
   const source = createCatalog([a, b], async () => null);
   const filters = {
     types: ['TV'],
@@ -179,6 +190,7 @@ it('treats every new filter as active and merges reference options', async () =>
     seasons: [{ value: 'winter', label: 'Зима' }],
     ageRatings: [{ value: 'R16_PLUS', label: '16+' }],
   });
+  expect(b.getCatalogFilters).not.toHaveBeenCalled();
 });
 
 it('opens direct, current catalog and legacy group links with the same existing playback key', async () => {

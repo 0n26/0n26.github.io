@@ -5,18 +5,18 @@ type IndexedEntry = CatalogEntry & { episodeRange?: EpisodeRange };
 
 export const catalogIndexVersion = 2;
 
-interface CatalogIndex {
+export interface CatalogIndex {
   generatedAt: number;
   releases: readonly (readonly IndexedEntry[])[];
   byAlias: ReadonlyMap<string, readonly IndexedEntry[]>;
 }
 
-const maxAge = 7 * 24 * 60 * 60 * 1000;
+export const catalogIndexMaxAge = 7 * 24 * 60 * 60 * 1000;
 
 export function parseCatalogIndex(value: unknown, now = Date.now()): CatalogIndex | null {
   const index = record(value);
   if (index?.version !== catalogIndexVersion || !positiveInteger(index.generatedAt) || index.generatedAt > now
-    || now - index.generatedAt >= maxAge || !Array.isArray(index.releases) || index.releases.length === 0) return null;
+    || now - index.generatedAt >= catalogIndexMaxAge || !Array.isArray(index.releases) || index.releases.length === 0) return null;
 
   const releases: IndexedEntry[][] = [];
   const byAlias = new Map<string, readonly IndexedEntry[]>();
@@ -71,23 +71,4 @@ export function parseCatalogIndex(value: unknown, now = Date.now()): CatalogInde
     releases.push(release);
   }
   return { generatedAt: index.generatedAt, releases, byAlias };
-}
-
-let request: Promise<CatalogIndex | null> | undefined;
-let nextCheck = 0;
-
-export function loadCatalogIndex(): Promise<CatalogIndex | null> {
-  if (!request || Date.now() >= nextCheck) {
-    nextCheck = Infinity;
-    request = fetch(`${import.meta.env.BASE_URL}catalog-index.json`, {
-      cache: 'no-cache', signal: AbortSignal.timeout(4000),
-    }).then(async (response) => response.ok ? parseCatalogIndex(await response.json()) : null)
-      .catch(() => null)
-      .then((index) => {
-        const now = Date.now();
-        nextCheck = index ? Math.min(index.generatedAt + maxAge, now + 60 * 60 * 1000) : now + 60 * 1000;
-        return index;
-      });
-  }
-  return request;
 }

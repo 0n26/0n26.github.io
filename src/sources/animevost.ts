@@ -1,3 +1,5 @@
+import { catalogEntries } from './catalogEntries.ts';
+import type { IndexScan, ReadIndexJson } from './indexSource.ts';
 import type { AnimeSource, CatalogEntry, Episode } from './source';
 import { positiveInteger, record, text, titleText } from './values.ts';
 
@@ -53,7 +55,38 @@ function readPage(body: unknown) {
   if (!state || !Array.isArray(data) || !(state.status === 'ok' || (state.status === 'fail' && !data.length))) {
     throw new Error('AnimeVost: invalid title list');
   }
-  return { data: data as unknown[], count: state.count };
+  return { data: data as unknown[], state };
+}
+
+function listingPath(page: number, limit = PAGE_SIZE): string {
+  return `last?page=${page}&quantity=${limit}`;
+}
+
+export function openAnimeVostIndex(readJson: ReadIndexJson): IndexScan {
+  // A single cache key keeps pages in the same sweep off independently cached lists.
+  const snapshot = String(Date.now());
+  function listingUrl(page: number, limit: number): URL {
+    const url = new URL(`${API}/${listingPath(page, limit)}`);
+    url.searchParams.set('_snapshot', snapshot);
+    return url;
+  }
+  return {
+    pageSize: PAGE_SIZE,
+    async readPage(page, signal) {
+      const { data, state } = readPage(await readJson(listingUrl(page, PAGE_SIZE), signal));
+      if (state.page !== page || !positiveInteger(state.count)) throw new Error('AnimeVost: inconsistent pagination');
+      return {
+        page, total: state.count, totalPages: Math.ceil(state.count / PAGE_SIZE),
+        rawCount: data.length, items: catalogEntries(data, catalogEntry),
+      };
+    },
+    async confirmEnd(offset, total, signal) {
+      // The advertised count can include entries absent from the public list.
+      const page = offset + 1;
+      const { data, state } = readPage(await readJson(listingUrl(page, 1), signal));
+      return state.status === 'fail' && state.page === page && state.count === total && data.length === 0;
+    },
+  };
 }
 
 function episodes(body: unknown): Episode[] {
@@ -93,19 +126,14 @@ export function createAnimeVost(fetcher: typeof fetch = globalThis.fetch): Anime
     key: 'animevost', name: 'AnimeVost',
     async getCatalog(query, page, signal) {
       const body = query ? await request('search', signal, { name: query })
-        : await request(`last?page=${page}&quantity=${PAGE_SIZE}`, signal);
+        : await request(listingPath(page), signal);
       if (query && body === null) return { items: [], page, totalPages: 1 };
-      const { data, count } = readPage(body);
+      const { data, state } = readPage(body);
       // Search returns all matches and ignores page/quantity.
-      const total = query ? data.length : count;
+      const total = query ? data.length : state.count;
       if (typeof total !== 'number' || !Number.isSafeInteger(total) || total < 0) throw new Error('AnimeVost: invalid count');
       const rows = query ? data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : data;
-      const items = new Map<string, CatalogEntry>();
-      for (const row of rows) {
-        const entry = catalogEntry(row);
-        if (entry) items.set(entry.alias, entry);
-      }
-      return { items: [...items.values()], page, totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
+      return { items: catalogEntries(rows, catalogEntry), page, totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
     },
     async getTitle(alias, signal) {
       if (!/^[1-9]\d*$/.test(alias)) return null;
