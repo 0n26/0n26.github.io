@@ -1,6 +1,6 @@
 import { catalogFilterValues, normalizeCatalogYears } from './catalogFilterValues.ts';
 import type { AnimeSource, AnimeTitle, CatalogEntry, CatalogOption, Episode, Franchise, ScheduleEntry } from './source';
-import { positiveInteger, record, text } from './values.ts';
+import { positiveInteger, record, text, titleText } from './values.ts';
 
 const ORIGIN = 'https://anilibria.top';
 const API = `${ORIGIN}/api/v1/anime`;
@@ -100,9 +100,9 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
   const alias = text(release.alias);
   if (!alias || !ALIAS.test(alias)) return;
   const names = record(release.name);
-  const english = text(names?.english);
-  const alternative = text(names?.alternative);
-  const name = text(names?.main) ?? english ?? alternative ?? alias;
+  const english = titleText(names?.english);
+  const alternative = titleText(names?.alternative);
+  const name = titleText(names?.main) ?? english ?? alternative ?? alias;
   const alternateName = english === name ? alternative : english ?? alternative;
   return {
     alias,
