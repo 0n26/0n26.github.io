@@ -1,7 +1,8 @@
 import { Alert, Badge, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { Link, useSearchParams } from 'react-router';
-import { defaultSource } from '../../sources';
-import type { AnimeSource } from '../../sources/source';
+import { catalog } from '../../catalog';
+import { catalogSourceKey } from '../../catalog/titleRef';
+import { episodeQuery, titleHref } from './titleLinks';
 import { useSourceRequest } from './useSourceRequest';
 import styles from './SchedulePage.module.css';
 
@@ -14,19 +15,17 @@ export function SchedulePage() {
       <Stack gap={4}>
         <Group justify="space-between" gap="xs">
           <Title order={1}>Расписание</Title>
-          <Badge variant="outline" color="gray">{defaultSource.name}</Badge>
+          <Badge variant="outline" color="gray">{catalog.name}</Badge>
         </Group>
         <Text c="dimmed">Выход серий по дням недели. Дни выхода могут меняться.</Text>
       </Stack>
-      {defaultSource.getSchedule ? (
-        <WeeklySchedule load={defaultSource.getSchedule} sourceKey={defaultSource.key} />
-      ) : <Text c="dimmed">Источник не предоставляет расписание.</Text>}
+      <WeeklySchedule />
     </Stack>
   );
 }
 
-function WeeklySchedule({ load, sourceKey }: { load: NonNullable<AnimeSource['getSchedule']>; sourceKey: string }) {
-  const request = useSourceRequest(load);
+function WeeklySchedule() {
+  const request = useSourceRequest(catalog.getSchedule);
   const [params] = useSearchParams();
   const today = new Date().getDay() || 7;
   const param = params.get('day') ?? '';
@@ -60,7 +59,7 @@ function WeeklySchedule({ load, sourceKey }: { load: NonNullable<AnimeSource['ge
         {entries.length === 0 ? <Text role="status" c="dimmed">На этот день релизов нет. Выберите другой день.</Text> : (
           <ul className={styles.list}>
             {entries.map(({ alias, name, poster, seasonComplete, publishedEpisode, nextEpisodeNumber }) => {
-              const href = `/anime/${encodeURIComponent(sourceKey)}/${encodeURIComponent(alias)}`;
+              const href = titleHref(catalogSourceKey, alias);
               return (
                 <li key={alias} className={styles.row}>
                   <div className={styles.poster} aria-hidden="true">
@@ -73,7 +72,7 @@ function WeeklySchedule({ load, sourceKey }: { load: NonNullable<AnimeSource['ge
                       : !publishedEpisode && <Text size="sm" c="dimmed">В расписании</Text>}
                   </div>
                   {publishedEpisode && (
-                    <Link className={styles.watch} to={`${href}?${new URLSearchParams({ episode: publishedEpisode.id })}`}
+                    <Link className={styles.watch} to={`${href}${episodeQuery(publishedEpisode.id)}`}
                       aria-label={`Смотреть: ${name}, серия ${publishedEpisode.number}`}>
                       Серия {publishedEpisode.number} <span aria-hidden="true">→</span>
                     </Link>

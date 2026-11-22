@@ -66,6 +66,35 @@
 .navLink[aria-current='page'], .navLink:hover { color: var(--app-text); }
 .navLink[aria-current='page']::after, .navLink:hover::after { transform: scaleX(1); }
 
+.header .navLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.header .navLink:hover {
+  background: var(--mantine-color-default-hover);
+  color: var(--mantine-color-text);
+}
+
+.header .navLink[aria-current='page'] {
+  background: var(--mantine-primary-color-light);
+  color: var(--mantine-primary-color-light-color);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.brand:focus-visible, .navLink:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
+.themeButton {
+  flex: none;
+  min-height: 2.75rem;
+  padding-inline: 0.625rem;
+}
+
 .profileLink {
   display: grid;
   place-items: center;
@@ -84,10 +113,13 @@
 @media (max-width: $mantine-breakpoint-xs) {
   .header .secondaryLink { display: none; }
   .header .navLink { padding-inline: 0.3rem; font-size: 0.64rem; letter-spacing: 0.06em; }
+  .catalogHeader .catalogLink, .header .aboutLink { display: none; }
+  .catalogHeader nav a::after { content: ' →' / ''; }
 }
 
 @media (max-width: 25rem) {
   .brandName { display: none; }
+  .header .catalogLink { display: none; }
   .header .navLink { padding-inline: 0.18rem; font-size: 0.6rem; }
   .header .profileLink { width: 1.8rem; height: 1.8rem; min-width: 1.8rem; }
 }

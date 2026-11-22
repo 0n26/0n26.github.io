@@ -3,6 +3,7 @@ import { useMediaQuery } from '@mantine/hooks';
 import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import type { Episode } from '../../sources/source';
+import { episodeQuery } from './titleLinks';
 import styles from './EpisodeNavigation.module.css';
 
 const groupSize = 20;
@@ -10,12 +11,6 @@ const groupSize = 20;
 export function episodeCaption(episode: Episode, index: number, total: number) {
   const count = episode.number === index + 1 ? ` из ${total}` : '';
   return `Серия ${episode.number}${count}${episode.name ? ` · ${episode.name}` : ''}`;
-}
-
-function episodeUrl(episode: Episode, voice: string | null) {
-  const next = new URLSearchParams({ episode: episode.id });
-  if (voice) next.set('voice', voice);
-  return `?${next}`;
 }
 
 export function EpisodeNavigation({ episodes, currentIndex, voice }: { episodes: readonly Episode[]; currentIndex: number; voice: string | null }) {
@@ -36,7 +31,7 @@ export function EpisodeNavigation({ episodes, currentIndex, voice }: { episodes:
     const label = desktop ? `Серия ${episode.number}` : back ? 'Назад' : 'Далее';
     const description = `${back ? 'Назад' : 'Далее'}: ${episodeCaption(episode, currentIndex + direction, episodes.length)}`;
     return (
-      <Link to={episodeUrl(episode, voice)} className={back ? styles.previous : styles.next} aria-label={description} title={description}>
+      <Link to={episodeQuery(episode.id, voice)} className={back ? styles.previous : styles.next} aria-label={description} title={description}>
         {back ? `← ${label}` : `${label} →`}
       </Link>
     );
@@ -57,7 +52,7 @@ export function EpisodeNavigation({ episodes, currentIndex, voice }: { episodes:
           const label = episodeCaption(episode, index, episodes.length);
           return (
             <li key={episode.id} className={episode.name ? styles.named : undefined}>
-              <Link to={episodeUrl(episode, voice)} aria-current={index === currentIndex ? 'page' : undefined} aria-label={label} title={label}>
+              <Link to={episodeQuery(episode.id, voice)} aria-current={index === currentIndex ? 'page' : undefined} aria-label={label} title={label}>
                 {episode.number}{episode.name && ` · ${episode.name}`}
               </Link>
             </li>

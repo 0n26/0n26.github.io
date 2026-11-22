@@ -5,12 +5,14 @@ import { version } from '../../package.json';
 import { CatalogPage } from '../features/catalog/CatalogPage';
 
 import { AppearanceMenu } from './AppearanceMenu';
+import { ThemeMenu } from './ThemeMenu';
 import { UpdateNotice } from './UpdateNotice';
 import styles from './App.module.css';
 
 const TitlePage = lazy(() => import('../features/catalog/TitlePage').then(m => ({ default: m.TitlePage })));
 const SchedulePage = lazy(() => import('../features/catalog/SchedulePage').then(m => ({ default: m.SchedulePage })));
 const ChangelogPage = lazy(() => import('../features/changelog/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
+const AboutPage = lazy(() => import('../features/about/AboutPage').then(m => ({ default: m.AboutPage })));
 const CommunityPage = lazy(() => import('../features/community/CommunityPage').then(m => ({ default: m.CommunityPage })));
 const ProfilePage = lazy(() => import('../features/community/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const ShopPage = lazy(() => import('../features/community/ShopPage').then(m => ({ default: m.ShopPage })));
@@ -24,7 +26,7 @@ export function App() {
       <AppShell.Header className={`${styles.header} ${catalog ? styles.catalogHeader : ''}`}>
         <Container size="xl" h="100%">
           <Group h="100%" justify="space-between" wrap="nowrap" gap="xs">
-            <Link className={styles.brand} to="/" aria-label="Ночной сеанс">
+            <Link className={styles.brand} to="/" aria-label="Ночной сеанс — каталог">
               <img src="/icon.svg" alt="" width={36} height={36} />
               <Text span fw={800} size="sm" className={watch ? undefined : styles.brandName}>Ночной сеанс</Text>
             </Link>
@@ -34,14 +36,16 @@ export function App() {
               </Link>
             ) : (
               <Group component="nav" aria-label="Основная навигация" gap={4} wrap="nowrap">
-                <NavLink to="/" end className={`${styles.navLink} ${styles.secondaryLink}`}>Каталог</NavLink>
+                <NavLink to="/" end className={`${styles.navLink} ${styles.catalogLink}`}>Каталог</NavLink>
                 <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
                 <NavLink to="/community" className={styles.navLink}>Сообщество</NavLink>
                 <NavLink to="/shop" className={styles.navLink}>Магазин</NavLink>
                 <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
+                <NavLink to="/about" className={`${styles.navLink} ${styles.aboutLink}`}>О проекте</NavLink>
               </Group>
             )}
             <AppearanceMenu />
+            <ThemeMenu />
             <Link to="/profile" className={styles.profileLink} aria-label="Мой профиль" title="Мой профиль">
               <span aria-hidden="true">🦉</span>
             </Link>
@@ -61,6 +65,7 @@ export function App() {
               <Route path="profile" element={<ProfilePage />} />
               <Route path="shop" element={<ShopPage />} />
               <Route path="user/:handle" element={<ProfilePage />} />
+              <Route path="about" element={<AboutPage />} />
               <Route path="*" element={
                 <Stack align="flex-start">
                   <Title order={1}>Страница не найдена</Title>
@@ -71,6 +76,7 @@ export function App() {
           </Suspense>
           <footer className={styles.footer}>
             <Text size="sm" c="dimmed">Ночной сеанс</Text>
+            <Link to="/about" className={styles.navLink}>О проекте</Link>
             <Link to="/changelog" className={styles.navLink}>Версия {version}</Link>
           </footer>
         </Container>

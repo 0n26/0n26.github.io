@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react';
 import { enhanceVideo } from './anime4k';
 import { attachHls, mediaDuration, playbackPoint, readPosition, savePosition } from './media';
 import type { PlaybackPoint } from './media';
+import { PlayerIcon } from './PlayerIcon';
 import classes from './Player.module.css';
 
 type PlayerProps = {
@@ -32,31 +33,6 @@ function formatTime(time: number) {
   const minutes = String(Math.floor(total / 60) % 60);
   const seconds = String(total % 60).padStart(2, '0');
   return hours ? `${hours}:${minutes.padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
-}
-
-const glyphs = {
-  play: 'M7 4 L21 12 L7 20 Z',
-  pause: 'M5 4 H9 V20 H5 Z M15 4 H19 V20 H15 Z',
-  sound: 'M3 9 H7 L12 5 V19 L7 15 H3 Z M16 8 Q20 12 16 16 M19 5 Q26 12 19 19',
-  muted: 'M3 9 H7 L12 5 V19 L7 15 H3 Z M16 9 L22 15 M22 9 L16 15',
-  expand: 'M3 9 V3 H9 M15 3 H21 V9 M21 15 V21 H15 M9 21 H3 V15',
-  collapse: 'M9 3 V9 H3 M15 3 V9 H21 M21 15 H15 V21 M3 15 H9 V21',
-  rewind: 'M3 4 V9 H8 M3 9 A9 9 0 1 1 7 20',
-  forward: 'M21 4 V9 H16 M21 9 A9 9 0 1 0 17 20',
-  settings: 'M4 6 H20 M4 12 H20 M4 18 H20 M8 4 V8 M16 10 V14 M10 16 V20',
-};
-
-function Glyph({ name }: { name: keyof typeof glyphs }) {
-  return (
-    <svg aria-hidden="true" width="1em" height="1em" viewBox="0 0 24 24"
-      fill={name === 'play' || name === 'pause' ? 'currentColor' : 'none'}
-      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d={glyphs[name]} />
-      {(name === 'rewind' || name === 'forward') && (
-        <text x="12" y="15.5" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none">10</text>
-      )}
-    </svg>
-  );
 }
 
 export function Player({ episodeKey, streams, poster }: PlayerProps) {
@@ -343,7 +319,7 @@ export function Player({ episodeKey, streams, poster }: PlayerProps) {
         ) : !playing && (
           <ActionIcon className={classes.centerPlay} size="4rem" radius="50%"
             aria-label="Воспроизвести видео" onClick={toggleFromStage}>
-            <Glyph name="play" />
+            <PlayerIcon name="play" />
           </ActionIcon>
         )}
       </div>
@@ -368,18 +344,18 @@ export function Player({ episodeKey, streams, poster }: PlayerProps) {
         <Group gap={0} className={classes.toolbar}>
           <ActionIcon {...control} aria-label={playLabel} title={playLabel}
             disabled={!ready || !!mediaError} onClick={togglePlayback}>
-            <Glyph name={playing ? 'pause' : 'play'} />
+            <PlayerIcon name={playing ? 'pause' : 'play'} />
           </ActionIcon>
           <ActionIcon {...control} aria-label="Назад на 10 секунд" title="Назад на 10 секунд"
             disabled={!canSeek} onClick={() => seekBy(-10)}>
-            <Glyph name="rewind" />
+            <PlayerIcon name="rewind" />
           </ActionIcon>
           <ActionIcon {...control} aria-label="Вперёд на 10 секунд" title="Вперёд на 10 секунд"
             disabled={!canSeek} onClick={() => seekBy(10)}>
-            <Glyph name="forward" />
+            <PlayerIcon name="forward" />
           </ActionIcon>
           <ActionIcon {...control} aria-label={soundLabel} title={soundLabel} onClick={toggleMute}>
-            <Glyph name={muted ? 'muted' : 'sound'} />
+            <PlayerIcon name={muted ? 'muted' : 'sound'} />
           </ActionIcon>
           <Slider
             className={classes.volume}
@@ -398,7 +374,7 @@ export function Player({ episodeKey, streams, poster }: PlayerProps) {
             middlewares={{ flip: false, shift: true }}>
             <Popover.Target>
               <ActionIcon {...control} className={`${classes.control} ${classes.settings}`} aria-label="Настройки" title="Настройки">
-                <Glyph name="settings" />
+                <PlayerIcon name="settings" />
               </ActionIcon>
             </Popover.Target>
             <Popover.Dropdown className={classes.settingsPanel} aria-label="Настройки воспроизведения">
@@ -411,7 +387,7 @@ export function Player({ episodeKey, streams, poster }: PlayerProps) {
                   onChange={(event) => {
                     if (video) video.defaultPlaybackRate = video.playbackRate = Number(event.currentTarget.value);
                   }} />
-                <Button size="sm" variant={enhanced ? 'light' : 'default'} color="yellow"
+                <Button size="sm" variant={enhanced ? 'light' : 'default'}
                   aria-label="Улучшение Anime4K" aria-pressed={enhanced} disabled={!!mediaError}
                   onClick={() => {
                     setEnhancementNotice(undefined);
@@ -429,7 +405,7 @@ export function Player({ episodeKey, streams, poster }: PlayerProps) {
           {canFullscreen && (
             <ActionIcon {...control} aria-label={fullscreenLabel} title={fullscreenLabel}
               onClick={() => void toggleFullscreen()}>
-              <Glyph name={fullscreen ? 'collapse' : 'expand'} />
+              <PlayerIcon name={fullscreen ? 'collapse' : 'expand'} />
             </ActionIcon>
           )}
         </Group>

@@ -1,7 +1,9 @@
 import { Alert, Text } from '@mantine/core';
 import { useCallback } from 'react';
 import { Link } from 'react-router';
-import { defaultSource } from '../../sources';
+import { catalog } from '../../catalog';
+import { catalogSourceKey } from '../../catalog/titleRef';
+import { titleHref } from '../catalog/titleLinks';
 import { ActivityList, FriendGrid, Panel, SupportCard } from './components';
 import s from './community.module.css';
 import { demoHandleDefault } from './demoRepository';
@@ -22,8 +24,7 @@ const sectionLinks = [
 export function CommunityPage() {
   const loadOverview = useCallback((signal: AbortSignal) => communityRepository.getOverview(signal), []);
   const loadProfile = useCallback((signal: AbortSignal) => communityRepository.getProfile(demoHandleDefault, signal), []);
-  const loadSchedule = useCallback((signal: AbortSignal) =>
-    defaultSource.getSchedule ? defaultSource.getSchedule(signal) : Promise.resolve([]), []);
+  const loadSchedule = useCallback((signal: AbortSignal) => catalog.getSchedule(signal), []);
   const overview = useCommunityRequest(loadOverview);
   const profile = useCommunityRequest(loadProfile);
   const schedule = useCommunityRequest(loadSchedule);
@@ -104,7 +105,7 @@ export function CommunityPage() {
                     <span className={s.activityIcon} aria-hidden="true">📺</span>
                     <div className={s.activityBody}>
                       <div className={s.activityTitle}>
-                        <Link className={s.link} to={`/anime/${encodeURIComponent(defaultSource.key)}/${encodeURIComponent(entry.alias)}`}>
+                        <Link className={s.link} to={titleHref(catalogSourceKey, entry.alias)}>
                           {entry.name}
                         </Link>
                       </div>
