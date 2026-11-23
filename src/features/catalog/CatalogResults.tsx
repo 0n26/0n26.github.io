@@ -3,12 +3,12 @@ import { catalogSourceKey } from '../../catalog/titleRef';
 import type { CatalogResult } from '../../sources/source';
 import { ReleaseCard } from './ReleaseCard';
 import { titleHref } from './titleLinks';
-import type { SourceRequest } from './useSourceRequest';
+import type { RequestState } from '../../hooks/useRequest';
 
 export function CatalogResults({ query, filtered, request, changePage }: {
   query: string;
   filtered: boolean;
-  request: SourceRequest<CatalogResult>;
+  request: RequestState<CatalogResult>;
   changePage: (page: number) => void;
 }) {
   return (
