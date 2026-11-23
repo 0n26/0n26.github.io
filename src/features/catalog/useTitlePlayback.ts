@@ -3,7 +3,7 @@ import { useHref, useLocation, useSearchParams } from 'react-router';
 import type { TitleAccess } from '../../catalog/catalog';
 import { parseVoiceAlias } from '../../catalog/titleRef';
 import { voiceParams } from './titleLinks';
-import { useSourceRequest } from './useSourceRequest';
+import { useRequest } from '../../hooks/useRequest';
 import { selectWatchEpisode, voiceChoices } from './voiceEpisodes';
 
 export function useTitlePlayback(source: TitleAccess, alias: string) {
@@ -19,13 +19,13 @@ export function useTitlePlayback(source: TitleAccess, alias: string) {
     await Promise.resolve();
     return locator === null || signal.aborted ? null : source.getTitle(locator, signal);
   }, [source, locator]);
-  const request = useSourceRequest(locator === null ? null : loadTitle);
+  const request = useRequest(locator === null ? null : loadTitle);
   const title = request.status === 'ready' ? request.data : null;
   const loadVoices = useCallback(async (signal: AbortSignal) => {
     await Promise.resolve();
     return signal.aborted ? [] : (source.getVoices?.(alias, signal) ?? []);
   }, [source, alias]);
-  const voicesRequest = useSourceRequest(source.getVoices ? loadVoices : null);
+  const voicesRequest = useRequest(source.getVoices ? loadVoices : null);
   const indexedVoices = voicesRequest.status === 'ready' ? voicesRequest.data : undefined;
 
   const switchFrom = location.state?.voiceEpisodeNumber;
