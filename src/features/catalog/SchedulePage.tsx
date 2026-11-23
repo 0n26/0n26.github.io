@@ -1,13 +1,9 @@
 import { Alert, Badge, Group, Loader, Stack, Text, Title } from '@mantine/core';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { catalog } from '../../catalog';
-import { catalogSourceKey } from '../../catalog/titleRef';
-import { episodeQuery, titleHref } from './titleLinks';
 import { useRequest } from '../../hooks/useRequest';
+import { ScheduleWeek } from './ScheduleWeek';
 import styles from './SchedulePage.module.css';
-
-const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
-const shortDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 export function SchedulePage() {
   return (
@@ -39,50 +35,5 @@ function WeeklySchedule() {
   if (request.data.length === 0) return <Text role="status" c="dimmed">На этой неделе нет релизов в расписании.</Text>;
 
   const entries = request.data.filter(({ day }) => day === selected);
-  return (
-    <>
-      <nav className={styles.week} aria-label="Дни недели">
-        {days.map((day, i) => (
-          <Link key={day} to={`?day=${i + 1}`} aria-current={selected === i + 1 ? 'page' : undefined}
-            aria-label={today === i + 1 ? `${day}, сегодня` : day}>
-            <span className={styles.longDay}>{day}</span>
-            <span className={styles.shortDay}>{shortDays[i]}</span>
-            {today === i + 1 && <span className={styles.todayDot} aria-hidden="true" />}
-          </Link>
-        ))}
-      </nav>
-      <section aria-labelledby="schedule-day">
-        <Group justify="space-between" align="baseline" mb="sm">
-          <Title id="schedule-day" order={2} size="h3">{selected === today && 'Сегодня · '}{days[selected - 1]}</Title>
-          <Text c="dimmed" size="sm">Тайтлов: {entries.length}</Text>
-        </Group>
-        {entries.length === 0 ? <Text role="status" c="dimmed">На этот день релизов нет. Выберите другой день.</Text> : (
-          <ul className={styles.list}>
-            {entries.map(({ alias, name, poster, seasonComplete, publishedEpisode, nextEpisodeNumber }) => {
-              const href = titleHref(catalogSourceKey, alias);
-              return (
-                <li key={alias} className={styles.row}>
-                  <div className={styles.poster} aria-hidden="true">
-                    {poster ? <img src={poster} alt="" loading="lazy" decoding="async" /> : name.slice(0, 1)}
-                  </div>
-                  <div className={styles.info}>
-                    <Link className={styles.title} to={href}>{name}</Link>
-                    {seasonComplete ? <Text size="sm" c="dimmed">Сезон вышел полностью</Text>
-                      : nextEpisodeNumber ? <Text size="sm" c="dimmed">Следующая серия: {nextEpisodeNumber}</Text>
-                      : !publishedEpisode && <Text size="sm" c="dimmed">В расписании</Text>}
-                  </div>
-                  {publishedEpisode && (
-                    <Link className={styles.watch} to={`${href}${episodeQuery(publishedEpisode.id)}`}
-                      aria-label={`Смотреть: ${name}, серия ${publishedEpisode.number}`}>
-                      Серия {publishedEpisode.number} <span aria-hidden="true">→</span>
-                    </Link>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-    </>
-  );
+  return <ScheduleWeek today={today} selected={selected} entries={entries} />;
 }
