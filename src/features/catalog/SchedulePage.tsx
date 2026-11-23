@@ -1,8 +1,9 @@
 import { Alert, Badge, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { useSearchParams } from 'react-router';
 import { catalog } from '../../catalog';
-import { ScheduleWeek } from './ScheduleWeek';
-import { useSourceRequest } from './useSourceRequest';
+import { catalogSourceKey } from '../../catalog/titleRef';
+import { episodeQuery, titleHref } from './titleLinks';
+import { useRequest } from '../../hooks/useRequest';
 import styles from './SchedulePage.module.css';
 
 export function SchedulePage() {
@@ -21,7 +22,7 @@ export function SchedulePage() {
 }
 
 function WeeklySchedule() {
-  const request = useSourceRequest(catalog.getSchedule);
+  const request = useRequest(catalog.getSchedule);
   const [params] = useSearchParams();
   const today = new Date().getDay() || 7;
   const param = params.get('day') ?? '';

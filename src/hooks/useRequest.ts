@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
 type Result<T> = { status: 'ready'; data: T } | { status: 'error' };
-export type SourceRequest<T> = Result<T> | { status: 'loading' };
+export type RequestState<T> = Result<T> | { status: 'loading' };
 
-export function useSourceRequest<T>(load: ((signal: AbortSignal) => Promise<T>) | null): SourceRequest<T> {
+export function useRequest<T>(load: ((signal: AbortSignal) => Promise<T>) | null): RequestState<T> {
   const [result, setResult] = useState<{ load: typeof load; state: Result<T> }>();
 
   useEffect(() => {

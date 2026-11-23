@@ -3,11 +3,11 @@ import { useMemo, useState } from 'react';
 import type { SubmitEvent } from 'react';
 import type { CatalogFilterOptions, CatalogFilters, CatalogOption } from '../../sources/source';
 import { MAX_GENRES } from './catalogFilters';
-import type { SourceRequest } from './useSourceRequest';
+import type { RequestState } from '../../hooks/useRequest';
 
 export function CatalogFilterControls({ filters, request, apply }: {
   filters: CatalogFilters;
-  request: SourceRequest<CatalogFilterOptions>;
+  request: RequestState<CatalogFilterOptions>;
   apply: (filters: CatalogFilters) => void;
 }) {
   const [opened, setOpened] = useState(false);

@@ -5,7 +5,7 @@ import type { ResolvedTitle, TitleAccess } from '../../catalog/catalog';
 import type { Franchise } from '../../sources/source';
 import { ReleaseCard } from './ReleaseCard';
 import { titleHref } from './titleLinks';
-import { useSourceRequest } from './useSourceRequest';
+import { useRequest } from '../../hooks/useRequest';
 import styles from './TitlePage.module.css';
 
 function Chronology({ franchise, currentAlias, sourceKey }: {
@@ -37,7 +37,7 @@ export function RelatedSections({ getRelated, title, sourceKey }: {
   sourceKey: string;
 }) {
   const load = useCallback((signal: AbortSignal) => getRelated(title, signal), [getRelated, title]);
-  const request = useSourceRequest(load);
+  const request = useRequest(load);
 
   if (request.status === 'loading') {
     return <Group role="status" gap="xs"><Loader size="xs" aria-hidden /> <Text c="dimmed">Загружаем связанные тайтлы…</Text></Group>;

@@ -1,58 +1,11 @@
-import { Alert, Anchor, Avatar, Badge, Group, Loader, Stack, Text, Title } from '@mantine/core';
-import { useEffect, useState } from 'react';
+import { Anchor, Badge, Group, Stack, Text, Title } from '@mantine/core';
 import { Link } from 'react-router';
 import { version } from '../../../package.json';
+import { ContributorsSection } from './ContributorsSection';
+import { REPOSITORY_URL } from './contributors';
 import styles from './AboutPage.module.css';
 
-type Contributor = {
-  login: string;
-  avatar_url: string;
-  contributions: number;
-};
-
-function commitsLabel(count: number): string {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'коммит';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'коммита';
-  return 'коммитов';
-}
-
-const REPOSITORY = '0n26/0n26.github.io';
-const REPOSITORY_URL = `https://github.com/${REPOSITORY}`;
-// shortcut: load the first page, paginate if the repository reaches 100 contributors.
-const CONTRIBUTORS_URL = `https://api.github.com/repos/${REPOSITORY}/contributors?per_page=100`;
-
-function isContributor(item: unknown): item is Contributor {
-  if (typeof item !== 'object' || item === null) return false;
-  const { type, login, avatar_url, contributions } = item as Record<string, unknown>;
-  return type === 'User' &&
-    typeof login === 'string' && /^[a-z\d-]{1,39}$/i.test(login) &&
-    typeof avatar_url === 'string' && avatar_url.startsWith('https://avatars.githubusercontent.com/') &&
-    typeof contributions === 'number' && Number.isSafeInteger(contributions) && contributions >= 0;
-}
-
 export function AboutPage() {
-  const [contributors, setContributors] = useState<Contributor[] | 'error' | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(CONTRIBUTORS_URL, {
-      headers: { Accept: 'application/vnd.github+json' },
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
-        const data: unknown = response.status === 204 ? [] : await response.json();
-        if (!Array.isArray(data)) throw new Error('Invalid contributor list');
-        if (!controller.signal.aborted) setContributors(data.filter(isContributor));
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setContributors('error');
-      });
-    return () => controller.abort();
-  }, []);
-
   return (
     <Stack gap="lg" className={styles.page}>
       <header>
@@ -104,47 +57,7 @@ export function AboutPage() {
         </Text>
       </section>
 
-      <section className={styles.section} aria-labelledby="about-contributors">
-        <Title id="about-contributors" order={2} size="h3">Участники</Title>
-        <Text c="dimmed" size="sm">
-          Участники с аккаунтом GitHub. Боты, отмеченные GitHub, скрыты.
-        </Text>
-        {contributors === null && (
-          <Group role="status" gap="xs">
-            <Loader size="xs" aria-hidden />
-            <Text>Загружаем список участников…</Text>
-          </Group>
-        )}
-        {contributors === 'error' && (
-          <Alert color="red" title="Не удалось загрузить список участников">
-            <Anchor href={`${REPOSITORY_URL}/graphs/contributors`} target="_blank" rel="noopener noreferrer">
-              Посмотреть вклад в репозиторий на GitHub
-            </Anchor>
-          </Alert>
-        )}
-        {Array.isArray(contributors) && contributors.length === 0 && (
-          <Text c="dimmed">Участники не найдены.</Text>
-        )}
-        {Array.isArray(contributors) && contributors.length > 0 && (
-          <div className={styles.contributors}>
-            {contributors.map((person) => (
-              <Anchor
-                key={person.login}
-                href={`https://github.com/${person.login}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.contributor}
-              >
-                <Avatar src={person.avatar_url} alt="" radius="xl" size="md" />
-                <Stack gap={0}>
-                  <Text fw={600} size="sm">{person.login}</Text>
-                  <Text size="xs" c="dimmed">{person.contributions} {commitsLabel(person.contributions)}</Text>
-                </Stack>
-              </Anchor>
-            ))}
-          </div>
-        )}
-      </section>
+      <ContributorsSection />
 
       <section className={styles.section} aria-labelledby="about-links">
         <Title id="about-links" order={2} size="h3">Ссылки</Title>
