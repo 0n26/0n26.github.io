@@ -7,3 +7,10 @@ export function episodeQuery(episodeId: string, voice: string | null = null): st
   if (voice) params.set('voice', voice);
   return `?${params}`;
 }
+
+export function voiceParams(params: URLSearchParams, alias: string): URLSearchParams {
+  const next = new URLSearchParams(params);
+  next.set('voice', alias);
+  next.delete('episode');
+  return next;
+}

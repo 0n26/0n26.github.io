@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { Episode } from '../../sources/source';
-import { voiceEpisodeIndex, voiceEpisodeNumber } from './voiceEpisodes';
+import { selectWatchEpisode, voiceChoices, voiceEpisodeIndex, voiceEpisodeNumber } from './voiceEpisodes';
 
 function playlist(alias: string, count: number): Episode[] {
   return Array.from({ length: count }, (_, index) => ({ id: `${alias}:${index + 1}`, number: index + 1, streams: [] }));
@@ -45,4 +45,22 @@ it('keeps matching by episode number for ordinary voice pairs', () => {
   const ordinal = voiceEpisodeNumber([special], 0)!;
   expect(voiceEpisodeIndex([...playlist('regular', 2), special], ordinal)).toBe(2);
   expect(voiceEpisodeIndex(playlist('regular', 2), ordinal)).toBe(-1);
+});
+
+it('does not select another episode when a pending voice change cannot be matched', () => {
+  const episodes = playlist('short', 2);
+  expect(selectWatchEpisode(episodes, null, 37, { first: 37, count: 3 })).toBe(-1);
+  expect(selectWatchEpisode(episodes, 'short:2', null)).toBe(1);
+});
+
+it('shows the part containing the current episode and keeps separate links to start either part', () => {
+  const whole = { sourceKey: 'full', source: 'Full', alias: 'full:show', episodeRange: { first: 1, count: 4 } };
+  const part1 = { sourceKey: 'split', source: 'Split', alias: 'split:one', episodeRange: { first: 1, count: 2 } };
+  const part2 = { ...part1, alias: 'split:two', episodeRange: { first: 3, count: 2 } };
+  const { ordinal, choices, starts } = voiceChoices(
+    { alias: whole.alias, episodes: playlist('whole', 4) }, [part1, part2, whole], 2,
+  );
+  expect(ordinal).toBe(3);
+  expect(choices?.map(({ alias }) => alias)).toEqual(['split:two', 'full:show']);
+  expect(starts?.map(({ alias }) => alias)).toEqual(['split:one', 'split:two']);
 });
