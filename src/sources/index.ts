@@ -1,5 +1,5 @@
-import { createAniLiberty, openAniLibertyIndex } from './aniliberty.ts';
-import { createAnimeVost, openAnimeVostIndex } from './animevost.ts';
+import { createAniLiberty, openAniLibertyIndex } from './aniliberty/index.ts';
+import { createAnimeVost, openAnimeVostIndex } from './animevost/index.ts';
 import type { IndexedSource } from './indexSource.ts';
 import type { AnimeSource } from './source.ts';
 
