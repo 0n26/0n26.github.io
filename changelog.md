@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.0](https://github.com/0n26/0n26.github.io/compare/v0.15.0...v1.0.0) (2026-11-25)
+
+### Возможности
+
+* оставить интерфейс на GitHub Pages и закрыть данные ([#61](https://github.com/0n26/0n26.github.io/pull/61))
+
+  Интерфейс остаётся на GitHub Pages. API и OAuth — на Gateway. Сессия в
+  sessionStorage, одноразовый код привязан к вкладке. Снимок каталога не
+  публикуется. Проверка: 101 тест, production build, Chromium 320 px
+  (гостевой экран по ссылке на профиль). ИИ использован. Не сливать до
+  согласованного переключения Identity и Gateway.
+
+  ---------
+
 ## [0.15.0](https://github.com/0n26/0n26.github.io/compare/v0.14.2...v0.15.0) (2026-11-24)
 
 ### Внутренние изменения
