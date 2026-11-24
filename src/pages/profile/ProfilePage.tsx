@@ -12,7 +12,7 @@ interface Profile {
   tester: boolean;
 }
 
-export function ProfilePage() {
+export function ProfilePage({ onLogout }: { onLogout: () => void }) {
   const { id } = useParams<'id'>();
   const own = id === undefined;
   const profileId = positiveParam(id);
@@ -37,9 +37,7 @@ export function ProfilePage() {
       {own && (
         <Group>
           <Button component={Link} to={`/profile/${shikimoriId}`} variant="light">Открыть ссылку на профиль</Button>
-          <form action="/auth/logout" method="post">
-            <Button type="submit" variant="default">Выйти</Button>
-          </form>
+          <Button onClick={onLogout} variant="default">Выйти</Button>
         </Group>
       )}
     </Stack>

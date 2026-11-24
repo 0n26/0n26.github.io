@@ -1,7 +1,9 @@
-import { AppShell, Button, Container, Group, Stack, Text, Title } from '@mantine/core';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { Alert, AppShell, Button, Container, Group, Stack, Text, Title } from '@mantine/core';
+import { lazy, Suspense, use, useEffect, useState } from 'react';
 import { Link, NavLink, Route, Routes, useMatch } from 'react-router';
 import { version } from '../../package.json';
+import { beginLogin, logout } from '../api';
+import type { SessionState } from '../api';
 import { CatalogPage } from '../pages/catalog';
 
 import { ThemeMenu } from './ThemeMenu';
@@ -18,7 +20,45 @@ interface InstallPromptEvent extends Event {
   prompt(): Promise<unknown>;
 }
 
-export function App() {
+type LoginStatus = Exclude<SessionState, 'signed-in'> | 'signing-out' | 'logout-failed';
+
+const loginErrors: Partial<Record<LoginStatus, string>> = {
+  denied: 'У этого аккаунта Shikimori пока нет доступа.',
+  invalid: 'Не удалось подтвердить вход. Начните его заново в этой вкладке.',
+  unavailable: 'Не удалось проверить вход. Попробуйте ещё раз.',
+  'logout-failed': 'Вы вышли в этой вкладке, но не удалось завершить сессию на сервере.',
+};
+
+function LoginPanel({ status }: { status: LoginStatus }) {
+  const [login, setLogin] = useState<'pending' | 'failed'>();
+  const error = login === 'failed' ? loginErrors.unavailable : loginErrors[status];
+
+  return (
+    <Stack maw={480} align="flex-start">
+      <Title order={1}>Ночной сеанс</Title>
+      {status === 'signing-out' ? <Text role="status">Завершаем сессию…</Text> : (
+        <>
+          <Text>Войдите через Shikimori, чтобы открыть каталог. Сейчас доступ открыт только участникам тестирования.</Text>
+          {error && <Alert color="red" role="alert">{error}</Alert>}
+          <Button loading={login === 'pending'} onClick={() => {
+            setLogin('pending');
+            void beginLogin().catch(() => setLogin('failed'));
+          }}>Войти через Shikimori</Button>
+        </>
+      )}
+    </Stack>
+  );
+}
+
+export function App({ initialSession }: { initialSession: Promise<SessionState> }) {
+  const restoredSession = use(initialSession);
+  const [logoutStatus, setLogoutStatus] = useState<LoginStatus>();
+  const session = logoutStatus ?? restoredSession;
+  const guest = session !== 'signed-in';
+  const signOut = () => {
+    setLogoutStatus('signing-out');
+    void logout().then(() => setLogoutStatus('guest'), () => setLogoutStatus('logout-failed'));
+  };
   const watch = useMatch('/anime/:source/:alias');
 
   const catalog = useMatch('/');
@@ -46,8 +86,8 @@ export function App() {
   };
 
   return (
-    <AppShell header={{ height: catalog ? { base: 56, xs: 76 } : 76 }} className={styles.shell}>
-      <AppShell.Header className={`${styles.header} ${catalog ? styles.catalogHeader : ''}`}>
+    <AppShell header={guest ? undefined : { height: catalog ? { base: 56, xs: 76 } : 76 }} className={styles.shell}>
+      {!guest && <AppShell.Header className={`${styles.header} ${catalog ? styles.catalogHeader : ''}`}>
         <Container size="xl" h="100%">
           <Group h="100%" justify="space-between" wrap="nowrap" gap="xs">
             <Link className={styles.brand} to="/" aria-label="Ночной сеанс — каталог">
@@ -69,31 +109,35 @@ export function App() {
             <ThemeMenu />
           </Group>
         </Container>
-      </AppShell.Header>
+      </AppShell.Header>}
       <AppShell.Main>
         <Container size="xl" className={styles.page}>
           <UpdateNotice />
-          <Suspense fallback={<Text role="status">Загрузка страницы…</Text>}>
-            <Routes>
-              <Route index element={<CatalogPage />} />
-              <Route path="anime/:source/:alias" element={<TitlePage />} />
-              <Route path="schedule" element={<SchedulePage />} />
-              <Route path="changelog" element={<ChangelogPage />} />
-              <Route path="about" element={<AboutPage onInstall={installPrompt ? install : undefined} />} />
-              <Route path="profile/:id?" element={<ProfilePage />} />
-              <Route path="*" element={
-                <Stack align="flex-start">
-                  <Title order={1}>Страница не найдена</Title>
-                  <Button component={Link} to="/">Открыть каталог</Button>
-                </Stack>
-              } />
-            </Routes>
-          </Suspense>
-          <footer className={styles.footer}>
-            <Text size="sm" c="dimmed">Ночной сеанс</Text>
-            <Link to="/about" className={styles.navLink}>О проекте</Link>
-            <Link to="/changelog" className={styles.navLink}>Версия {version}</Link>
-          </footer>
+          {guest ? <LoginPanel status={session} /> : (
+            <>
+              <Suspense fallback={<Text role="status">Загрузка страницы…</Text>}>
+                <Routes>
+                  <Route index element={<CatalogPage />} />
+                  <Route path="anime/:source/:alias" element={<TitlePage />} />
+                  <Route path="schedule" element={<SchedulePage />} />
+                  <Route path="changelog" element={<ChangelogPage />} />
+                  <Route path="about" element={<AboutPage onInstall={installPrompt ? install : undefined} />} />
+                  <Route path="profile/:id?" element={<ProfilePage onLogout={signOut} />} />
+                  <Route path="*" element={
+                    <Stack align="flex-start">
+                      <Title order={1}>Страница не найдена</Title>
+                      <Button component={Link} to="/">Открыть каталог</Button>
+                    </Stack>
+                  } />
+                </Routes>
+              </Suspense>
+              <footer className={styles.footer}>
+                <Text size="sm" c="dimmed">Ночной сеанс</Text>
+                <Link to="/about" className={styles.navLink}>О проекте</Link>
+                <Link to="/changelog" className={styles.navLink}>Версия {version}</Link>
+              </footer>
+            </>
+          )}
         </Container>
       </AppShell.Main>
     </AppShell>

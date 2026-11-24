@@ -1,4 +1,4 @@
-name: Release frontend and update Pages redirect
+name: Publish to GitHub Pages
 on:
   push:
     branches: [main]
@@ -15,6 +15,7 @@ jobs:
     permissions:
       contents: write
     outputs:
+      sha: ${{ steps.source.outputs.sha }}
       tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -30,6 +31,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release.mjs publish
+      - name: Select the main commit to deploy
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   sync-changelog:
     needs: release
     runs-on: ubuntu-latest
@@ -88,24 +92,33 @@ jobs:
             gh api graphql -f id="$(jq -r .id <<< "$state")" \
               -f query='mutation($id: ID!) { enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: SQUASH}) { pullRequest { number } } }'
           fi
-  redirect:
-    if: github.ref == 'refs/heads/main'
+  build:
+    needs: release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ needs.release.outputs.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
-      - run: node scripts/pages-redirect.mjs
+          cache: npm
+      - name: Apply version and changelog from the release tag
         env:
-          GATEWAY_ORIGIN: ${{ vars.GATEWAY_ORIGIN }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: node scripts/release.mjs materialize "$RELEASE_TAG"
+      - run: npm ci
+      - name: Build the site without a public catalog index
+        run: |
+          npm run build
+          test ! -e dist/catalog-index.json
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: dist
   deploy:
-    needs: redirect
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       pages: write

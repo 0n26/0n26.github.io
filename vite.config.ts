@@ -21,11 +21,13 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // The same URL serves different pages before and after login.
+        // Only the manifest icons are precached; navigations and Gateway requests stay on the network.
+        cacheId: '0n26',
+        importScripts: ['pwa-cache-cleanup.js'],
         globPatterns: [],
         navigateFallback: null,
         inlineWorkboxRuntime: true,
-        cleanupOutdatedCaches: true,
+        cleanupOutdatedCaches: false,
       },
     }),
   ],
