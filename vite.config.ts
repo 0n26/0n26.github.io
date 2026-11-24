@@ -21,9 +21,11 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
-        // Offline pages do not play remote streams; fetch the HLS engine only when needed.
-        globIgnores: ['**/hls-*.js', '**/hls.worker-*.js'],
+        // The same URL serves different pages before and after login.
+        globPatterns: [],
+        navigateFallback: null,
+        inlineWorkboxRuntime: true,
+        cleanupOutdatedCaches: true,
       },
     }),
   ],

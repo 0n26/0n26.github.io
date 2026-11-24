@@ -112,5 +112,5 @@ export interface AnimeSource {
   getSchedule?(signal: AbortSignal): Promise<readonly ScheduleEntry[]>;
   /** Returns null for a missing title; transport or parsing failures reject. */
   getTitle(alias: string, signal: AbortSignal): Promise<AnimeTitle | null>;
-  getRelated?(title: AnimeTitle, signal: AbortSignal): Promise<RelatedInfo>;
+  getRelated?(title: Pick<AnimeTitle, 'alias' | 'id'>, signal: AbortSignal): Promise<RelatedInfo>;
 }

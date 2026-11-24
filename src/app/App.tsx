@@ -12,6 +12,7 @@ const TitlePage = lazy(() => import('../pages/title').then(m => ({ default: m.Ti
 const SchedulePage = lazy(() => import('../pages/schedule').then(m => ({ default: m.SchedulePage })));
 const ChangelogPage = lazy(() => import('../pages/changelog').then(m => ({ default: m.ChangelogPage })));
 const AboutPage = lazy(() => import('../pages/about').then(m => ({ default: m.AboutPage })));
+const ProfilePage = lazy(() => import('../pages/profile').then(m => ({ default: m.ProfilePage })));
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<unknown>;
@@ -62,7 +63,7 @@ export function App() {
                 <NavLink to="/" end className={`${styles.navLink} ${styles.catalogLink}`}>Каталог</NavLink>
                 <NavLink to="/schedule" className={styles.navLink}>Расписание</NavLink>
                 <NavLink to="/changelog" className={`${styles.navLink} ${styles.secondaryLink}`}>Изменения</NavLink>
-                <NavLink to="/about" className={`${styles.navLink} ${styles.aboutLink}`}>О проекте</NavLink>
+                <NavLink to="/profile" className={styles.navLink}>Профиль</NavLink>
               </Group>
             )}
             <ThemeMenu />
@@ -79,6 +80,7 @@ export function App() {
               <Route path="schedule" element={<SchedulePage />} />
               <Route path="changelog" element={<ChangelogPage />} />
               <Route path="about" element={<AboutPage onInstall={installPrompt ? install : undefined} />} />
+              <Route path="profile/:id?" element={<ProfilePage />} />
               <Route path="*" element={
                 <Stack align="flex-start">
                   <Title order={1}>Страница не найдена</Title>

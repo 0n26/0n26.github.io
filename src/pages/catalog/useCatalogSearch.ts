@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import { catalog } from '../../catalog';
 import type { CatalogFilters } from '../../sources/source';
-import { catalogParams, filterKey, parseCatalogFilters, positiveParam } from './catalogFilters';
+import { catalogParams, filterKey, parseCatalogFilters, positiveParam } from '../../routes/catalogFilters';
 import { useRequest } from '../../hooks/useRequest';
 
 export function useCatalogSearch() {
