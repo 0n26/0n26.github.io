@@ -1,11 +1,11 @@
-import { Anchor, Badge, Group, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Badge, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { Link } from 'react-router';
 import { version } from '../../../package.json';
 import { ContributorsSection } from './ContributorsSection';
 import { REPOSITORY_URL } from './contributors';
 import styles from './AboutPage.module.css';
 
-export function AboutPage() {
+export function AboutPage({ onInstall }: { onInstall?: () => void }) {
   return (
     <Stack gap="lg" className={styles.page}>
       <header>
@@ -18,6 +18,19 @@ export function AboutPage() {
           без собственного сервера и ключей доступа.
         </Text>
       </header>
+
+      <section className={styles.section} aria-labelledby="about-install">
+        <Title id="about-install" order={2} size="h3">Установка приложения</Title>
+        {onInstall && (
+          <div>
+            <Button variant="light" mih={44} onClick={onInstall}>Установить приложение</Button>
+          </div>
+        )}
+        <ul className={styles.list}>
+          <li>На iPhone и iPad: в Safari нажмите «Поделиться» → «На экран „Домой“».</li>
+          <li>В других браузерах: найдите в меню «Установить приложение» или «Добавить на главный экран», если такой пункт есть.</li>
+        </ul>
+      </section>
 
       <section className={styles.section} aria-labelledby="about-description">
         <Title id="about-description" order={2} size="h3">Описание</Title>
