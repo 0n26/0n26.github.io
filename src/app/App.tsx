@@ -1,5 +1,5 @@
 import { AppShell, Button, Container, Group, Stack, Text, Title } from '@mantine/core';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Route, Routes, useMatch } from 'react-router';
 import { version } from '../../package.json';
 import { CatalogPage } from '../pages/catalog';
@@ -13,10 +13,37 @@ const SchedulePage = lazy(() => import('../pages/schedule').then(m => ({ default
 const ChangelogPage = lazy(() => import('../pages/changelog').then(m => ({ default: m.ChangelogPage })));
 const AboutPage = lazy(() => import('../pages/about').then(m => ({ default: m.AboutPage })));
 
+interface InstallPromptEvent extends Event {
+  prompt(): Promise<unknown>;
+}
+
 export function App() {
   const watch = useMatch('/anime/:source/:alias');
 
   const catalog = useMatch('/');
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent>();
+
+  useEffect(() => {
+    const rememberPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as InstallPromptEvent);
+    };
+    const clearPrompt = () => setInstallPrompt(undefined);
+
+    window.addEventListener('beforeinstallprompt', rememberPrompt);
+    window.addEventListener('appinstalled', clearPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', rememberPrompt);
+      window.removeEventListener('appinstalled', clearPrompt);
+    };
+  }, []);
+
+  const install = () => {
+    if (!installPrompt) return;
+    setInstallPrompt(undefined);
+    void installPrompt.prompt().catch(error => console.warn('Не удалось открыть окно установки', error));
+  };
+
   return (
     <AppShell header={{ height: catalog ? { base: 56, xs: 76 } : 76 }} className={styles.shell}>
       <AppShell.Header className={`${styles.header} ${catalog ? styles.catalogHeader : ''}`}>
@@ -51,7 +78,7 @@ export function App() {
               <Route path="anime/:source/:alias" element={<TitlePage />} />
               <Route path="schedule" element={<SchedulePage />} />
               <Route path="changelog" element={<ChangelogPage />} />
-              <Route path="about" element={<AboutPage />} />
+              <Route path="about" element={<AboutPage onInstall={installPrompt ? install : undefined} />} />
               <Route path="*" element={
                 <Stack align="flex-start">
                   <Title order={1}>Страница не найдена</Title>
