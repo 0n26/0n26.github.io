@@ -66,4 +66,4 @@ AniLiberty отдаёт HLS, а AnimeVost — MP4. Эпизоды загружа
 
 Чтобы проверить локально каталог с полным индексом, выполните `node scripts/catalog-index.mjs public/catalog-index.json` перед `npm run dev` (Node.js 24). Служебный файл не коммитится.
 
-[Правила участия и релизов](CONTRIBUTING.md) · [Инструкции агентам](AGENTS.md) · [История изменений](changelog.md)
+[Правила участия и релизов](CONTRIBUTING.md) · [Инструкции агентам](AGENTS.md) · [Настройка AI CLI](docs/ai-cli.md) · [История изменений](changelog.md)
