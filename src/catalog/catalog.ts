@@ -87,7 +87,7 @@ export function createCatalog(
     async getRelated(title, signal) {
       const source = catalogSources.get(title.ref.sourceKey);
       if (!source?.getRelated) return { similar: [] };
-      const info = await source.getRelated({ ...title, alias: title.ref.alias }, signal);
+      const info = await source.getRelated({ alias: title.ref.alias, id: title.id }, signal);
       return {
         similar: info.similar.map((entry) => prefixEntry(source.key, entry)),
         franchises: info.franchises?.map((franchise) => ({

@@ -3,8 +3,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  schedule:
-    - cron: '17 4 * * *'
 permissions:
   contents: read
 concurrency:
@@ -12,12 +10,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   release:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'schedule'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     outputs:
-      sha: ${{ steps.snapshot.outputs.sha }}
+      sha: ${{ steps.source.outputs.sha }}
       tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -34,11 +32,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release.mjs publish
       - name: Select the main commit to deploy
-        id: snapshot
+        id: source
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   sync-changelog:
     needs: release
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     environment: release-bump
     steps:
@@ -95,48 +92,13 @@ jobs:
             gh api graphql -f id="$(jq -r .id <<< "$state")" \
               -f query='mutation($id: ID!) { enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: SQUASH}) { pullRequest { number } } }'
           fi
-  catalog:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: main
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version-file: .nvmrc
-      - name: Collect the complete catalog
-        run: node scripts/catalog-index.mjs "$RUNNER_TEMP/catalog-index.json"
-      - name: Save the catalog snapshot
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          branch=automation/catalog-data
-          data="$RUNNER_TEMP/catalog-data"
-          if git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
-            git worktree add --detach "$data" "refs/remotes/origin/$branch"
-          else
-            git init "$data"
-          fi
-          cp "$RUNNER_TEMP/catalog-index.json" "$data/catalog-index.json"
-          git -C "$data" add -- catalog-index.json
-          git -C "$data" -c user.name='github-actions[bot]' \
-            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -m 'chore(catalog): обновить индекс'
-          git -C "$data" -c credential.helper= -c 'credential.helper=!gh auth git-credential' \
-            push "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "HEAD:refs/heads/$branch"
   build:
-    needs: [release, catalog]
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || needs.release.result == 'success') }}
+    needs: release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ needs.release.outputs.sha || 'main' }}
+          ref: ${{ needs.release.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
@@ -146,28 +108,17 @@ jobs:
       - name: Apply version and changelog from the release tag
         env:
           RELEASE_TAG: ${{ needs.release.outputs.tag }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [[ "$GITHUB_EVENT_NAME" == schedule ]]; then
-            RELEASE_TAG=$(gh release view --json tagName --jq '.tagName')
-          fi
-          node scripts/release.mjs materialize "$RELEASE_TAG"
+        run: node scripts/release.mjs materialize "$RELEASE_TAG"
       - run: npm ci
-      - name: Build the site
-        run: npm run build
-      - name: Copy the latest complete catalog
+      - name: Build the site without a public catalog index
         run: |
-          ref=refs/remotes/origin/automation/catalog-data
-          if git show-ref --verify --quiet "$ref"; then
-            git show "$ref:catalog-index.json" > dist/catalog-index.json
-          fi
+          npm run build
+          test ! -e dist/catalog-index.json
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: dist
   deploy:
     needs: build
-    # Optional release or catalog jobs can be skipped even when build succeeds.
-    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write

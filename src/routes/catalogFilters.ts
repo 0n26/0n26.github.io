@@ -1,5 +1,5 @@
-import { catalogFilterValues, normalizeCatalogYears } from '../../sources/catalogFilterValues';
-import type { CatalogFilters } from '../../sources/source';
+import { catalogFilterValues, normalizeCatalogYears } from '../sources/catalogFilterValues';
+import type { CatalogFilters } from '../sources/source';
 
 export const MAX_GENRES = 8;
 

@@ -76,7 +76,7 @@
 }
 
 @media (max-width: $mantine-breakpoint-xs) {
-  .catalogHeader .catalogLink, .catalogHeader .secondaryLink, .header .aboutLink {
+  .catalogHeader .catalogLink, .header .secondaryLink {
     display: none;
   }
 

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { hasCatalogFilters } from '../../../src/sources/source';
-import { MAX_GENRES, catalogParams, filterKey, parseCatalogFilters, parseGenreIds, positiveParam } from '../../../src/pages/catalog/catalogFilters';
+import { MAX_GENRES, catalogParams, filterKey, parseCatalogFilters, parseGenreIds, positiveParam } from '../../../src/routes/catalogFilters';
 
 it('parses repeated and comma-separated genre params, deduplicating invalid ids', () => {
   expect(parseGenreIds('15,1,15,0,abc,,8')).toEqual([15, 1, 8]);

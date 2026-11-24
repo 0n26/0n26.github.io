@@ -21,9 +21,13 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
-        // Offline pages do not play remote streams; fetch the HLS engine only when needed.
-        globIgnores: ['**/hls-*.js', '**/hls.worker-*.js'],
+        // Only the manifest icons are precached; navigations and Gateway requests stay on the network.
+        cacheId: '0n26',
+        importScripts: ['pwa-cache-cleanup.js'],
+        globPatterns: [],
+        navigateFallback: null,
+        inlineWorkboxRuntime: true,
+        cleanupOutdatedCaches: false,
       },
     }),
   ],

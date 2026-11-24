@@ -106,7 +106,7 @@ it('loads similar releases and franchise chronology without duplicates', async (
     throw new Error(`Unexpected request: ${url}`);
   });
 
-  await expect(source.getRelated!({ alias: 'test-release', id: 42, name: 'Тест', episodes: [] } as any, signal)).resolves.toMatchObject({
+  await expect(source.getRelated!({ alias: 'test-release', id: 42 }, signal)).resolves.toMatchObject({
     similar: [{ alias: 'similar-one', name: 'Похожий', year: 2021 }],
     franchises: [{
       id: 'franchise-1',
@@ -125,7 +125,7 @@ it.each([200, 503])('keeps recommendations and distinguishes a franchise HTTP %s
       ? Response.json([], { status })
       : Response.json([{ alias: 'similar-one', name: { main: 'Похожий' } }]),
   );
-  const info = await source.getRelated!({ alias: 'test-release', id: 42, name: 'Тест', episodes: [] }, new AbortController().signal);
+  const info = await source.getRelated!({ alias: 'test-release', id: 42 }, new AbortController().signal);
 
   expect(info.similar.map(({ alias }) => alias)).toEqual(['similar-one']);
   expect(info.franchises).toEqual(status === 200 ? [] : undefined);

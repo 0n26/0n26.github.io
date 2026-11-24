@@ -2,7 +2,7 @@ import { ActionIcon, Button, Chip, Drawer, Group, MultiSelect, NumberInput, Sele
 import { useMemo, useState } from 'react';
 import type { SubmitEvent } from 'react';
 import type { CatalogFilterOptions, CatalogFilters, CatalogOption } from '../../sources/source';
-import { MAX_GENRES } from './catalogFilters';
+import { MAX_GENRES } from '../../routes/catalogFilters';
 import type { RequestState } from '../../hooks/useRequest';
 
 export function CatalogFilterControls({ filters, request, apply }: {
