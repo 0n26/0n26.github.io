@@ -2,16 +2,16 @@ import { AppShell, Button, Container, Group, Stack, Text, Title } from '@mantine
 import { lazy, Suspense } from 'react';
 import { Link, NavLink, Route, Routes, useMatch } from 'react-router';
 import { version } from '../../package.json';
-import { CatalogPage } from '../features/catalog/CatalogPage';
+import { CatalogPage } from '../pages/catalog';
 
 import { ThemeMenu } from './ThemeMenu';
 import { UpdateNotice } from './UpdateNotice';
 import styles from './App.module.css';
 
-const TitlePage = lazy(() => import('../features/catalog/TitlePage').then(m => ({ default: m.TitlePage })));
-const SchedulePage = lazy(() => import('../features/catalog/SchedulePage').then(m => ({ default: m.SchedulePage })));
-const ChangelogPage = lazy(() => import('../features/changelog/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
-const AboutPage = lazy(() => import('../features/about/AboutPage').then(m => ({ default: m.AboutPage })));
+const TitlePage = lazy(() => import('../pages/title').then(m => ({ default: m.TitlePage })));
+const SchedulePage = lazy(() => import('../pages/schedule').then(m => ({ default: m.SchedulePage })));
+const ChangelogPage = lazy(() => import('../pages/changelog').then(m => ({ default: m.ChangelogPage })));
+const AboutPage = lazy(() => import('../pages/about').then(m => ({ default: m.AboutPage })));
 
 export function App() {
   const watch = useMatch('/anime/:source/:alias');
