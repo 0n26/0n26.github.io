@@ -185,20 +185,18 @@ async function createIndex(fetcher, sources, previous) {
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(240_000)]);
     const readJson = (url, signal) => readPage(url, fetcher, signal);
     const catalogs = await Promise.all(sources.map((source) => sweep(source, readJson, signal)));
-    const availability = previous === undefined ? undefined : await refreshCatalogAvailability(catalogs, {
-      previous, fetcher, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(25 * 60_000)]),
+    const availability = await refreshCatalogAvailability(catalogs, {
+      previous, sources: sources.map(({ source }) => source),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(25 * 60_000)]),
       limit: catalogs.reduce((total, entries) => total + entries.length, 0),
     });
-    if (availability && catalogs.some(entries => entries.some(({ alias }) => typeof availability[alias]?.playable !== 'boolean'))) {
+    if (catalogs.some(entries => entries.some(({ alias }) => typeof availability[alias]?.playable !== 'boolean'))) {
       throw new Error('Playback verification incomplete; keep the previous snapshot');
     }
-    const groups = groupReleases(availability
-      ? catalogs.map(entries => entries.filter(({ alias }) => availability[alias]?.playable === true))
-      : catalogs);
-    if (availability && !groups.length) throw new Error('No playable releases verified; keep the previous snapshot');
-    const releases = availability
-      ? await enrichShikimoriMetadata(groups, fetcher, AbortSignal.any([controller.signal, AbortSignal.timeout(12 * 60_000)]))
-      : groups;
+    const groups = groupReleases(catalogs.map(entries => entries.filter(({ alias }) => availability[alias].playable)));
+    if (!groups.length) throw new Error('No playable releases verified; keep the previous snapshot');
+    const releases = await enrichShikimoriMetadata(groups, fetcher,
+      AbortSignal.any([controller.signal, AbortSignal.timeout(12 * 60_000)]));
     const index = { version: catalogIndexVersion, generatedAt: Date.now(), releases, availability };
     if (!parseCatalogIndex(index)) throw new Error('invalid generated catalog index');
     return index;
