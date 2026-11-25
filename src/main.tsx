@@ -1,10 +1,11 @@
 import '@mantine/core/styles.css';
-import { Container, MantineProvider, Text } from '@mantine/core';
+import { MantineProvider } from '@mantine/core';
 import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router';
 import { restoreSession } from './api';
 import { App } from './app/App';
+import { SignInScreen } from './app/SignInScreen';
 import { cssVariablesResolver, theme } from './app/theme';
 
 window.addEventListener('pageshow', (event) => {
@@ -17,7 +18,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} defaultColorScheme="dark">
       <HashRouter>
-        <Suspense fallback={<Container component="main" py="xl"><Text role="status">Проверяем сессию…</Text></Container>}>
+        <Suspense fallback={<SignInScreen status="checking" />}>
           <App initialSession={session} />
         </Suspense>
       </HashRouter>
