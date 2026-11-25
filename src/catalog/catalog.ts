@@ -109,21 +109,19 @@ export function createCatalog(
         ? filterSource?.getCatalogFilters ? [filterSource] : []
         : availableSources;
 
-      if (!hasFilters) {
-        const index = await loadIndex();
-        signal.throwIfAborted();
-        if (index) {
-          const search = query.toLowerCase();
-          const releases = search ? index.releases.filter((variants) => variants.some(({ name, alternateName, searchName }) =>
-            name.toLowerCase().includes(search) || alternateName?.toLowerCase().includes(search)
-            || searchName?.toLowerCase().includes(search),
-          )) : index.releases;
-          return {
-            items: releases.slice((page - 1) * pageSize, page * pageSize).map(([release]) => release),
-            page,
-            totalPages: Math.max(1, Math.ceil(releases.length / pageSize)),
-          };
-        }
+      const index = await loadIndex();
+      signal.throwIfAborted();
+      if (!hasFilters && index) {
+        const search = query.toLowerCase();
+        const releases = search ? index.releases.filter((variants) => variants.some(({ name, alternateName, searchName }) =>
+          name.toLowerCase().includes(search) || alternateName?.toLowerCase().includes(search)
+          || searchName?.toLowerCase().includes(search),
+        )) : index.releases;
+        return {
+          items: releases.slice((page - 1) * pageSize, page * pageSize).map(([release]) => release),
+          page,
+          totalPages: Math.max(1, Math.ceil(releases.length / pageSize)),
+        };
       }
 
       if (selectedSources.length === 0) return { items: [], page, totalPages: 1 };
@@ -136,8 +134,15 @@ export function createCatalog(
         throw settled.find((result) => result.status === 'rejected')?.reason;
       }
       return {
-        items: successes.flatMap(({ source, result }) => page === result.page && page <= result.totalPages
-          ? result.items.map((entry) => prefixEntry(source.key, entry)) : []),
+        items: successes.flatMap(({ source, result }) => {
+          if (page !== result.page || page > result.totalPages) return [];
+          return result.items.flatMap((entry) => {
+            const item = prefixEntry(source.key, entry);
+            if (!index?.verifiedPlayback) return [item];
+            const verified = index.byAlias.get(item.alias)?.find(variant => variant.alias === item.alias);
+            return verified ? [verified] : [];
+          });
+        }),
         page,
         totalPages: Math.max(1, ...successes.map(({ result }) => result.totalPages)),
         incomplete: successes.length < selectedSources.length || successes.some(({ result }) => result.incomplete),
