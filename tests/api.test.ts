@@ -6,9 +6,16 @@ const site = 'https://0n26.github.io';
 const gateway = 'https://gateway.pyw0w.workers.dev';
 const fragment = '#/anime/aniliberty/test?episode=2&source=animevost';
 const tokenKey = '0n26:session';
+const attemptKey = '0n26:login-attempt';
 const verifierKey = '0n26:login-verifier';
 const token = 'opaque_token-123';
 const verifier = 'ab'.repeat(32);
+const oauthState = 'cd'.repeat(32);
+const returnTo = `/${fragment}`;
+const authorize = new URL('https://shikimori.io/oauth/authorize');
+authorize.search = new URLSearchParams({
+  state: oauthState, redirect_uri: `${site}/auth/callback`,
+}).toString();
 const profile = { id: 42, nickname: 'tester', avatar: null, tester: true };
 const storage = new Map<string, string>();
 const fetcher = vi.fn<typeof fetch>();
@@ -23,6 +30,14 @@ function callback(query: string) {
   location.href = `${site}/?${query}${fragment}`;
 }
 
+function saveAttempt(path = returnTo) {
+  storage.set(attemptKey, JSON.stringify({ state: oauthState, verifier, returnTo: path }));
+}
+
+function directCallback(query: string, path = '/auth/callback') {
+  location.href = `${site}${path}?${query}`;
+}
+
 beforeEach(() => {
   location.href = `${site}/${fragment}`;
   storage.clear();
@@ -34,7 +49,7 @@ beforeEach(() => {
   vi.stubGlobal('window', { location });
   vi.stubGlobal('history', {
     state: null,
-    replaceState: (_state: unknown, _unused: string, url: URL) => { location.href = url.href; },
+    replaceState: (_state: unknown, _unused: string, url: string | URL) => { location.href = new URL(url, site).href; },
   });
   vi.stubGlobal('sessionStorage', {
     getItem: (key: string) => storage.get(key) ?? null,
@@ -52,16 +67,106 @@ describe('Gateway session', () => {
     expect(await restoreSession()).toBe('guest');
     expect(fetcher).not.toHaveBeenCalled();
 
+    fetcher.mockResolvedValueOnce(Response.json({ url: authorize.href }));
     await beginLogin();
-    const savedVerifier = storage.get(verifierKey)!;
-    expect(savedVerifier).toMatch(/^[a-f0-9]{64}$/);
-    const url = new URL(location.assign.mock.calls[0][0]);
-    expect(`${url.origin}${url.pathname}`).toBe(`${gateway}/auth/login`);
-    expect([...url.searchParams]).toEqual([
-      ['returnTo', `/${fragment}`],
-      ['challenge', createHash('sha256').update(savedVerifier).digest('hex')],
-    ]);
-    expect(url.href).not.toContain(savedVerifier);
+    const attempt = JSON.parse(storage.get(attemptKey)!);
+    expect(attempt).toEqual({ state: oauthState, verifier: expect.stringMatching(/^[a-f0-9]{64}$/), returnTo });
+    expect(fetcher).toHaveBeenCalledWith(`${gateway}/auth/start`, expect.objectContaining({
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ returnTo, challenge: createHash('sha256').update(attempt.verifier).digest('hex') }),
+      credentials: 'omit', cache: 'no-store', redirect: 'error',
+    }));
+    expect(location.assign).toHaveBeenCalledExactlyOnceWith(authorize.href);
+    expect(authorize.href).not.toContain(attempt.verifier);
+  });
+
+  it.each([
+    authorize.href.replace('shikimori.io', 'other.example'),
+    authorize.href.replace('auth%2Fcallback', 'auth%2Fcallback%2F'),
+    `${authorize.href}&state=${oauthState}`,
+  ])('does not navigate to an invalid authorization URL: %s', async (url) => {
+    fetcher.mockResolvedValueOnce(Response.json({ url }));
+
+    await expect(beginLogin()).rejects.toThrow('Invalid authorization URL');
+    expect(location.assign).not.toHaveBeenCalled();
+    expect(storage.size).toBe(0);
+  });
+
+  it.each(['/auth/callback', '/auth/callback/'])('finishes at %s without sending OAuth parameters in the address', async (path) => {
+    directCallback(`code=provider%2Bcode&state=${oauthState}`, path);
+    saveAttempt();
+    storage.set(tokenKey, 'old-token');
+    fetcher.mockImplementationOnce(async () => {
+      expect(location.href).toBe(`${site}${returnTo}`);
+      expect(storage.size).toBe(0);
+      return Response.json({ token, returnTo });
+    }).mockImplementationOnce(async () => {
+      expect(storage.size).toBe(0);
+      return Response.json(profile);
+    });
+
+    expect(await restoreSession()).toBe('signed-in');
+    expect(fetcher).toHaveBeenNthCalledWith(1, `${gateway}/auth/complete`, expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ code: 'provider+code', state: oauthState, verifier }),
+      headers: { 'Content-Type': 'application/json' }, credentials: 'omit', cache: 'no-store', redirect: 'error',
+    }));
+    expect(fetcher).toHaveBeenNthCalledWith(2, `${gateway}/api/session`, expect.objectContaining({
+      headers: { Authorization: `Bearer ${token}` },
+    }));
+    expect([...storage]).toEqual([[tokenKey, token]]);
+  });
+
+  it.each([
+    [`code=one&code=two&state=${oauthState}`, 'invalid'],
+    [`code=one&state=${oauthState}&state=${oauthState}`, 'invalid'],
+    [`code=one&state=${verifier}`, 'invalid'],
+    [`code=one&error=access_denied&state=${oauthState}`, 'invalid'],
+    [`error=access_denied&error_description=private&state=${oauthState}`, 'denied'],
+  ] as const)('scrubs %s and consumes the attempt without calling Gateway', async (query, state) => {
+    directCallback(query);
+    saveAttempt();
+
+    expect(await restoreSession()).toBe(state);
+    expect(location.href).toBe(`${site}${returnTo}`);
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(storage.size).toBe(0);
+  });
+
+  it.each([undefined, '//other.example/#/profile/1'])('rejects a missing or unsafe tab attempt: %s', async (path) => {
+    directCallback(`code=one&state=${oauthState}`);
+    if (path) saveAttempt(path);
+
+    expect(await restoreSession()).toBe('invalid');
+    expect(location.href).toBe(`${site}/`);
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(storage.size).toBe(0);
+  });
+
+  it.each([
+    [401, 'invalid'],
+    [403, 'denied'],
+    [503, 'unavailable'],
+  ] as const)('preserves the route and cannot retry a consumed callback (HTTP %s)', async (status, error) => {
+    directCallback(`code=one&state=${oauthState}`);
+    saveAttempt();
+    fetcher.mockResolvedValueOnce(Response.json({ error }, { status }));
+
+    expect(await restoreSession()).toBe(error);
+    expect(location.href).toBe(`${site}${returnTo}`);
+    expect(await restoreSession()).toBe('guest');
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(storage.size).toBe(0);
+  });
+
+  it('does not accept a bearer for a different return path', async () => {
+    directCallback(`code=one&state=${oauthState}`);
+    saveAttempt();
+    fetcher.mockResolvedValueOnce(Response.json({ token, returnTo: '/#/profile/1' }));
+
+    expect(await restoreSession()).toBe('unavailable');
+    expect(location.href).toBe(`${site}${returnTo}`);
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(storage.size).toBe(0);
   });
 
   it('scrubs the handoff and consumes the verifier before exchange, then stores only a verified bearer', async () => {

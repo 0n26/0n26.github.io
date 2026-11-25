@@ -13,6 +13,8 @@
 
 Версия и lockfile сохраняются в коммите релизного тега. Для GitHub Pages CI подставляет версию и changelog из тега в выбранный коммит `main` и публикует сборку без индекса каталога. Gateway развёртывается отдельно и обслуживает только вход и API.
 
+Перед публикацией клиента с прямым возвратом из Shikimori разверните поддержку `POST /auth/start` и `POST /auth/complete` в Gateway и Identity и проверьте, что Shikimori разрешает точный URI `https://0n26.github.io/auth/callback`. Сборка содержит `auth/callback.html` для этого адреса без перенаправления и `auth/callback/index.html` для варианта со слешем. Не удаляйте старые маршруты входа до завершения перехода.
+
 ## Обновление каталога
 
 Приватный CI Gateway ежедневно собирает полный индекс AniLiberty и AnimeVost командой `node frontend/scripts/catalog-index.mjs <путь>` и загружает его в закрытый Workers KV. В публичный репозиторий и GitHub Pages индекс не попадает.

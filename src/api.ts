@@ -1,6 +1,9 @@
 const gatewayOrigin = 'https://gateway.pyw0w.workers.dev';
+const callbackPath = '/auth/callback';
+const callbackUrl = `https://0n26.github.io${callbackPath}`;
 const tokenKey = '0n26:session';
 const verifierKey = '0n26:login-verifier';
+const attemptKey = '0n26:login-attempt';
 
 export type SessionState = 'signed-in' | 'guest' | 'denied' | 'invalid' | 'unavailable';
 
@@ -8,6 +11,23 @@ function gatewayFetch(path: string, init: RequestInit) {
   const url = new URL(path, gatewayOrigin);
   if (url.origin !== gatewayOrigin) throw new Error('Gateway: invalid URL');
   return fetch(url.href, { ...init, cache: 'no-store', credentials: 'omit', redirect: 'error' });
+}
+
+function postAuth(path: string, body: object) {
+  return gatewayFetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: timeout(),
+  });
+}
+
+function isCredential(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+}
+
+function isReturnPath(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 2048 && /^\/#\/[^\u0000-\u0020\u007f\\]*$/u.test(value);
 }
 
 function isBearer(value: unknown): value is string {
@@ -29,14 +49,81 @@ function hex(bytes: Uint8Array) {
 export async function beginLogin() {
   const verifier = hex(crypto.getRandomValues(new Uint8Array(32)));
   const challenge = hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
-  const returnTo = `/${location.hash.startsWith('#/') ? location.hash : '#/'}`;
-  sessionStorage.setItem(verifierKey, verifier);
-  location.assign(`${gatewayOrigin}/auth/login?${new URLSearchParams({ returnTo, challenge })}`);
+  const hashPath = `/${location.hash}`;
+  const returnTo = isReturnPath(hashPath) ? hashPath : '/#/';
+  const response = await postAuth('/auth/start', { returnTo, challenge });
+  if (!response.ok) throw new Error('Unable to start login');
+  const data = await response.json();
+  if (typeof data?.url !== 'string') throw new Error('Invalid authorization URL');
+  const url = new URL(data.url);
+  const [state, ...extraStates] = url.searchParams.getAll('state');
+  const [redirect, ...extraRedirects] = url.searchParams.getAll('redirect_uri');
+  if (url.origin !== 'https://shikimori.io' || url.pathname !== '/oauth/authorize' || url.username || url.password
+    || redirect !== callbackUrl || extraRedirects.length || !isCredential(state) || extraStates.length) {
+    throw new Error('Invalid authorization URL');
+  }
+  sessionStorage.setItem(attemptKey, JSON.stringify({ state, verifier, returnTo }));
+  location.assign(url.href);
+}
+
+function consumeAttempt() {
+  const saved = sessionStorage.getItem(attemptKey);
+  sessionStorage.removeItem(attemptKey);
+  if (!saved) return null;
+  try {
+    const attempt = JSON.parse(saved);
+    if (isCredential(attempt?.state) && isCredential(attempt.verifier) && isReturnPath(attempt.returnTo)) {
+      return { state: attempt.state, verifier: attempt.verifier, returnTo: attempt.returnTo };
+    }
+  } catch {
+    // An unreadable attempt cannot authenticate this tab.
+  }
+  return null;
+}
+
+async function completeCallback(url: URL): Promise<SessionState> {
+  history.replaceState(history.state, '', '/');
+  sessionStorage.removeItem(tokenKey);
+  const attempt = consumeAttempt();
+  if (!attempt) return 'invalid';
+  history.replaceState(history.state, '', attempt.returnTo);
+
+  const [state, ...extraStates] = url.searchParams.getAll('state');
+  if (state !== attempt.state || extraStates.length) return 'invalid';
+  const [code, ...extraCodes] = url.searchParams.getAll('code');
+  const [error, ...extraErrors] = url.searchParams.getAll('error');
+  if (error !== undefined) {
+    return error === 'access_denied' && !extraErrors.length && code === undefined ? 'denied' : 'invalid';
+  }
+  if (!code || code.length > 2048 || extraCodes.length) return 'invalid';
+
+  const response = await postAuth('/auth/complete', { code, state, verifier: attempt.verifier });
+  if (response.status === 401) return 'invalid';
+  if (response.status === 403) return 'denied';
+  if (!response.ok) return 'unavailable';
+  const data = await response.json();
+  if (!isBearer(data?.token) || data.returnTo !== attempt.returnTo) return 'unavailable';
+  return verifySession(data.token);
+}
+
+async function verifySession(token: string): Promise<SessionState> {
+  const session = await gatewayFetch('/api/session', { headers: bearer(token), signal: timeout() });
+  if (session.status === 401 || session.status === 403) return 'guest';
+  if (!session.ok) return 'unavailable';
+  const profile = await session.json();
+  if (!Number.isSafeInteger(profile?.id) || profile.id < 1 || typeof profile.nickname !== 'string'
+    || (profile.avatar !== null && typeof profile.avatar !== 'string') || typeof profile.tester !== 'boolean') {
+    return 'unavailable';
+  }
+  sessionStorage.setItem(tokenKey, token);
+  return 'signed-in';
 }
 
 export async function restoreSession(): Promise<SessionState> {
   try {
     const url = new URL(location.href);
+    if (url.pathname === callbackPath || url.pathname === `${callbackPath}/`) return await completeCallback(url);
+
     const codes = url.searchParams.getAll('login_code');
     const errors = url.searchParams.getAll('login_error');
     let token: unknown;
@@ -52,15 +139,10 @@ export async function restoreSession(): Promise<SessionState> {
         if (errors[0] === 'denied' || errors[0] === 'unavailable') return errors[0];
         return 'invalid';
       }
-      if (codes.length !== 1 || !codes[0] || errors.length || !verifier || !/^[a-f0-9]{64}$/.test(verifier)) {
+      if (codes.length !== 1 || !codes[0] || errors.length || !isCredential(verifier)) {
         return 'invalid';
       }
-      const exchange = await gatewayFetch('/auth/exchange', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: codes[0], verifier }),
-        signal: timeout(),
-      });
+      const exchange = await postAuth('/auth/exchange', { code: codes[0], verifier });
       if (exchange.status === 400 || exchange.status === 401) return 'invalid';
       if (!exchange.ok) return 'unavailable';
       const data = await exchange.json();
@@ -71,17 +153,7 @@ export async function restoreSession(): Promise<SessionState> {
       // A reload during validation must not reuse an unverified token.
       sessionStorage.removeItem(tokenKey);
     }
-    if (!isBearer(token)) return 'guest';
-    const session = await gatewayFetch('/api/session', { headers: bearer(token), signal: timeout() });
-    if (session.status === 401 || session.status === 403) return 'guest';
-    if (!session.ok) return 'unavailable';
-    const profile = await session.json();
-    if (!Number.isSafeInteger(profile?.id) || profile.id < 1 || typeof profile.nickname !== 'string'
-      || (profile.avatar !== null && typeof profile.avatar !== 'string') || typeof profile.tester !== 'boolean') {
-      return 'unavailable';
-    }
-    sessionStorage.setItem(tokenKey, token);
-    return 'signed-in';
+    return isBearer(token) ? await verifySession(token) : 'guest';
   } catch {
     return 'unavailable';
   }
@@ -91,6 +163,7 @@ export async function logout() {
   const token = sessionStorage.getItem(tokenKey);
   sessionStorage.removeItem(tokenKey);
   sessionStorage.removeItem(verifierKey);
+  sessionStorage.removeItem(attemptKey);
   if (!isBearer(token)) return;
   const response = await gatewayFetch('/auth/logout', { method: 'POST', headers: bearer(token), signal: timeout() });
   if (response.status !== 204 && response.status !== 401) throw new Error(`Gateway: HTTP ${response.status}`);
