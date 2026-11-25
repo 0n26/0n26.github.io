@@ -187,7 +187,11 @@ async function createIndex(fetcher, sources, previous) {
     const catalogs = await Promise.all(sources.map((source) => sweep(source, readJson, signal)));
     const availability = previous === undefined ? undefined : await refreshCatalogAvailability(catalogs, {
       previous, fetcher, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(25 * 60_000)]),
+      limit: catalogs.reduce((total, entries) => total + entries.length, 0),
     });
+    if (availability && catalogs.some(entries => entries.some(({ alias }) => typeof availability[alias]?.playable !== 'boolean'))) {
+      throw new Error('Playback verification incomplete; keep the previous snapshot');
+    }
     const groups = groupReleases(availability
       ? catalogs.map(entries => entries.filter(({ alias }) => availability[alias]?.playable === true))
       : catalogs);

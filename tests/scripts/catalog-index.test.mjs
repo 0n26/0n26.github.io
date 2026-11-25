@@ -44,6 +44,17 @@ function fixture({ alter = (_, body) => Response.json(body) } = {}) {
   return { left, right, fetcher, calls };
 }
 
+it('does not replace a snapshot when playback availability is unknown', async () => {
+  const { fetcher } = fixture();
+  await publishCatalogIndex(output, fetcher);
+  const previous = readFileSync(output, 'utf8');
+  await expect(publishCatalogIndex(output, (input, init) => {
+    if (!new URL(input).searchParams.has('page')) return Promise.reject(new Error('provider unavailable'));
+    return fetcher(input, init);
+  }, undefined, {})).rejects.toThrow('Playback verification incomplete');
+  expect(readFileSync(output, 'utf8')).toBe(previous);
+});
+
 it('groups unique title and year matches across full sweeps, keeping ambiguous and unknown years separate', async () => {
   const { left, right, fetcher, calls } = fixture();
   Object.assign(left[0], {
