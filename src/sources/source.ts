@@ -9,7 +9,9 @@ export interface CatalogEntry {
   alternateName?: string;
   searchName?: string;
   poster?: string;
+  description?: string;
   year?: number;
+  shikimoriId?: number;
   id?: number;
   ageRating?: string;
   publishStatus?: string;

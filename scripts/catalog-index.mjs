@@ -1,9 +1,11 @@
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { qualifyTitle } from '../src/catalog/titleRef.ts';
 import { catalogIndexVersion, parseCatalogIndex } from '../src/sources/catalogIndex.ts';
 import { indexedSources } from '../src/sources/index.ts';
 import { positiveInteger } from '../src/sources/values.ts';
+import { refreshCatalogAvailability } from './catalog-availability.mjs';
+import { enrichShikimoriMetadata } from './shikimori-metadata.mjs';
 
 const requestTimeout = 15_000;
 
@@ -83,13 +85,13 @@ async function sweep({ source, openIndex }, readJson, signal) {
     if (shortPage && !(await confirmEnd?.(entries.length + result.rawCount, total, signal))) {
       throw new Error(`${label}: unexpectedly short page`);
     }
-    for (const { alias, name, alternateName, searchName, year, poster, id,
+    for (const { alias, name, alternateName, searchName, year, poster, id, shikimoriId,
       ageRating, publishStatus, type, season, genres, episodesTotal, episodeDurationMinutes } of result.items) {
       if (aliases.has(alias) || (id !== undefined && ids.has(id))) throw new Error(`${label}: duplicate release`);
       aliases.add(alias);
       if (id !== undefined) ids.add(id);
       entries.push({
-        alias: qualifyTitle(source.key, alias), name, alternateName, searchName, year, poster,
+        alias: qualifyTitle(source.key, alias), name, alternateName, searchName, year, poster, shikimoriId,
         ageRating, publishStatus, type, season, genres, episodesTotal, episodeDurationMinutes,
       });
     }
@@ -177,13 +179,23 @@ function groupReleases(catalogs) {
   return releases;
 }
 
-async function createIndex(fetcher, sources) {
+async function createIndex(fetcher, sources, previous) {
   const controller = new AbortController();
   try {
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(240_000)]);
     const readJson = (url, signal) => readPage(url, fetcher, signal);
     const catalogs = await Promise.all(sources.map((source) => sweep(source, readJson, signal)));
-    const index = { version: catalogIndexVersion, generatedAt: Date.now(), releases: groupReleases(catalogs) };
+    const availability = previous === undefined ? undefined : await refreshCatalogAvailability(catalogs, {
+      previous, fetcher, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(25 * 60_000)]),
+    });
+    const groups = groupReleases(availability
+      ? catalogs.map(entries => entries.filter(({ alias }) => availability[alias]?.playable === true))
+      : catalogs);
+    if (availability && !groups.length) throw new Error('No playable releases verified; keep the previous snapshot');
+    const releases = availability
+      ? await enrichShikimoriMetadata(groups, fetcher, AbortSignal.any([controller.signal, AbortSignal.timeout(12 * 60_000)]))
+      : groups;
+    const index = { version: catalogIndexVersion, generatedAt: Date.now(), releases, availability };
     if (!parseCatalogIndex(index)) throw new Error('invalid generated catalog index');
     return index;
   } finally {
@@ -191,8 +203,8 @@ async function createIndex(fetcher, sources) {
   }
 }
 
-export async function publishCatalogIndex(output, fetcher = globalThis.fetch, sources = indexedSources) {
-  const index = await createIndex(fetcher, sources);
+export async function publishCatalogIndex(output, fetcher = globalThis.fetch, sources = indexedSources, previous) {
+  const index = await createIndex(fetcher, sources, previous);
 
   await mkdir(dirname(output), { recursive: true });
   const temporary = `${output}.${process.pid}.tmp`;
@@ -205,7 +217,8 @@ export async function publishCatalogIndex(output, fetcher = globalThis.fetch, so
 }
 
 if (import.meta.main) {
-  const [, , output] = process.argv;
-  if (!output) throw new Error('Usage: node scripts/catalog-index.mjs <output>');
-  await publishCatalogIndex(output);
+  const [, , output, previousPath] = process.argv;
+  if (!output) throw new Error('Usage: node scripts/catalog-index.mjs <output> [previous-index.json]');
+  const previous = previousPath ? (JSON.parse(await readFile(previousPath, 'utf8')).availability ?? {}) : undefined;
+  await publishCatalogIndex(output, undefined, undefined, previous);
 }
