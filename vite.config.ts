@@ -5,6 +5,21 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig({
   plugins: [
     react(),
+    {
+      name: 'pages-oauth-callback',
+      apply: 'build',
+      generateBundle: {
+        order: 'post',
+        handler(_options, bundle) {
+          const index = bundle['index.html'];
+          if (index?.type !== 'asset') this.error('Missing application HTML for the OAuth callback');
+          // Pages serves callback.html at the exact slashless URL before trying a directory redirect.
+          for (const fileName of ['auth/callback.html', 'auth/callback/index.html']) {
+            this.emitFile({ type: 'asset', fileName, source: index.source });
+          }
+        },
+      },
+    },
     VitePWA({
       injectRegister: false,
       manifest: {
