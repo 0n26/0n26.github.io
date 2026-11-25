@@ -122,10 +122,10 @@ it.each([
   expect(calls).toEqual([{ ids: '1' }]);
 });
 
-it('rejects a fallback list outside its requested year', async () => {
+it('ignores a fallback result outside the requested year', async () => {
   const { load } = fixture(() => response([anime(1, 'First', { airedOn: { year: 2023 } })]));
-
-  await expect(load([[playback('animevost:1', { name: 'First' })]])).rejects.toThrow('inconsistent airing-year results');
+  const groups = [[playback('animevost:1', { name: 'First' })]];
+  await expect(load(groups)).resolves.toEqual(groups);
 });
 
 it('does not send requests after cancellation', async () => {

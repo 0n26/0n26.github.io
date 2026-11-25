@@ -120,10 +120,12 @@ async function scanYear(year, names, read) {
     const rows = await read(byYearQuery, { season: String(year), page });
     for (const row of rows) {
       const id = shikimoriId(record(row)?.id);
-      if (id <= lastId || record(row.airedOn)?.year !== year || !text(row.name)) {
-        throw new Error('Shikimori: inconsistent airing-year results');
+      if (id <= lastId) {
+        for (const key of names.keys()) names.set(key, null);
+        return;
       }
       lastId = id;
+      if (record(row.airedOn)?.year !== year || !text(row.name)) continue;
       for (const name of [row.name, row.russian, row.english, row.japanese, ...(Array.isArray(row.synonyms) ? row.synonyms : [])]) {
         const key = normalizeShikimoriTitle(name);
         if (!names.has(key)) continue;
