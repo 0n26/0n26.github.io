@@ -1,10 +1,22 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { catalogIndexVersion, parseCatalogIndex } from '../../src/sources/catalogIndex.ts';
 import { indexedSources } from '../../src/sources/index.ts';
 import { publishCatalogIndex } from '../../scripts/catalog-index.mjs';
+
+vi.mock(import('../../src/sources/index.ts'), async (original) => {
+  const registry = await original();
+  return { ...registry, indexedSources: registry.indexedSources.map(entry => ({
+    ...entry,
+    source: { ...entry.source, getTitle: async alias => playableTitle(alias) },
+  })) };
+});
+
+function playableTitle(alias) {
+  return { alias, episodes: [{ streams: [{ url: 'https://example.test/episode.m3u8' }] }] };
+}
 
 let directory, output;
 
@@ -27,6 +39,7 @@ function fixture({ alter = (_, body) => Response.json(body) } = {}) {
     expect(credentials).toBe('omit');
     expect(signal).toBeInstanceOf(AbortSignal);
     const url = new URL(input);
+    if (url.hostname === 'shikimori.io') return Response.json({ data: { animes: [] } });
     const page = Number(url.searchParams.get('page'));
     const isLeft = url.hostname === 'anilibria.top';
     const rows = isLeft ? left : right;
@@ -43,6 +56,17 @@ function fixture({ alter = (_, body) => Response.json(body) } = {}) {
   };
   return { left, right, fetcher, calls };
 }
+
+it('does not replace a snapshot when playback availability is unknown', async () => {
+  const { fetcher } = fixture();
+  await publishCatalogIndex(output, fetcher);
+  const previous = readFileSync(output, 'utf8');
+  const unavailable = indexedSources.map(entry => ({
+    ...entry, source: { ...entry.source, async getTitle() { throw new Error('provider unavailable'); } },
+  }));
+  await expect(publishCatalogIndex(output, fetcher, unavailable)).rejects.toThrow('Playback verification incomplete');
+  expect(readFileSync(output, 'utf8')).toBe(previous);
+});
 
 it('groups unique title and year matches across full sweeps, keeping ambiguous and unknown years separate', async () => {
   const { left, right, fetcher, calls } = fixture();
@@ -133,6 +157,7 @@ it('pairs a third provider when the match is mutual, but keeps three-way matches
     source: {
       key: 'third',
       getCatalog() { throw new Error('The generator must not call the browser catalog'); },
+      async getTitle(alias) { return playableTitle(alias); },
     },
     openIndex() {
       const items = [
