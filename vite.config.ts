@@ -18,6 +18,18 @@ export default defineConfig({
   plugins: [
     react(),
     {
+      name: 'title-retry-url',
+      resolveId(id) {
+        if (id === 'virtual:title-retry-url') return '\0' + id;
+      },
+      load(id) {
+        if (id !== '\0virtual:title-retry-url') return;
+        if (this.environment.mode !== 'build') return 'export default "/src/pages/title/index.ts"';
+        const ref = this.emitFile({ type: 'chunk', id: fileURLToPath(new URL('./src/pages/title/index.ts', import.meta.url)) });
+        return `export default import.meta.ROLLUP_FILE_URL_${ref}`;
+      },
+    },
+    {
       name: 'pages-oauth-callback',
       apply: 'build',
       generateBundle: {
