@@ -1,0 +1,75 @@
+.screen {
+  display: grid;
+  min-height: 100svh;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: radial-gradient(ellipse at 25% 20%, var(--app-glow), transparent 65%), var(--mantine-color-body);
+}
+
+.frame {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  width: min(100%, 58rem);
+  margin-inline: auto;
+}
+
+.header {
+  padding-block-end: 1rem;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.layout {
+  grid-row: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+  align-items: center;
+  gap: clamp(1.25rem, 5vw, 4rem);
+  padding-block: clamp(1.5rem, 6vw, 4rem);
+}
+
+.art {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  width: min(100%, 23rem);
+  margin-inline: auto;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle closest-side,
+    transparent 0 23%, var(--mantine-color-default-border) 23.5% 24%, transparent 24.5% 25%);
+}
+
+.art img {
+  width: 32%;
+  height: auto;
+  filter: drop-shadow(0 0 2rem var(--mantine-primary-color-light-hover));
+}
+
+.panel {
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  background: var(--mantine-color-default);
+}
+
+[data-mantine-color-scheme='dark'] .action:enabled {
+  color: var(--mantine-color-black);
+}
+
+.title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+@media (max-width: $mantine-breakpoint-xs) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    justify-items: stretch;
+  }
+
+  .art {
+    width: clamp(6.5rem, 28vw, 9rem);
+  }
+
+  .art img {
+    width: 44%;
+  }
+}
