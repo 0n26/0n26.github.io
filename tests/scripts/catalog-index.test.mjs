@@ -56,6 +56,7 @@ it('groups unique title and year matches across full sweeps, keeping ambiguous a
     genres: [{ name: 'Драма' }],
     episodes_total: 12,
     average_duration_of_episode: 24,
+    shikimori: { id: 63801 },
     description: 'Not public', episodes: [{ video: 'https://example.test/video' }],
   });
   left[1].name.main = right[24].title = right[48].title = 'Ambiguous';
@@ -68,7 +69,7 @@ it('groups unique title and year matches across full sweeps, keeping ambiguous a
   Object.assign(right[25], { title: 'Другая ночь / the    night [TV]', urlImagePreview: 'http://animevost.org/uploads/posts/night.jpg' });
   const metadata = {
     ageRating: '12+', publishStatus: 'Завершён', type: 'ТВ', season: 'Зима',
-    genres: ['Драма'], episodesTotal: 12, episodeDurationMinutes: 24,
+    genres: ['Драма'], episodesTotal: 12, episodeDurationMinutes: 24, shikimoriId: 63801,
   };
 
   await publishCatalogIndex(output, fetcher);

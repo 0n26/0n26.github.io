@@ -7,6 +7,7 @@ export const catalogIndexVersion = 2;
 
 export interface CatalogIndex {
   generatedAt: number;
+  verifiedPlayback?: boolean;
   releases: readonly (readonly IndexedEntry[])[];
   byAlias: ReadonlyMap<string, readonly IndexedEntry[]>;
 }
@@ -51,6 +52,8 @@ export function parseCatalogIndex(value: unknown, now = Date.now()): CatalogInde
         alias, name, alternateName, searchName, episodeRange,
         year: positiveInteger(entry.year) ? entry.year : undefined,
         poster: poster?.startsWith('https://') ? poster : undefined,
+        shikimoriId: positiveInteger(entry.shikimoriId) ? entry.shikimoriId : undefined,
+        description: text(entry.description),
         ageRating: text(entry.ageRating),
         publishStatus: text(entry.publishStatus),
         type: text(entry.type),
@@ -70,5 +73,5 @@ export function parseCatalogIndex(value: unknown, now = Date.now()): CatalogInde
       || (release.length === 2 && release[0].alias.split(':', 1)[0] === release[1].alias.split(':', 1)[0])) return null;
     releases.push(release);
   }
-  return { generatedAt: index.generatedAt, releases, byAlias };
+  return { generatedAt: index.generatedAt, releases, byAlias, ...(record(index.availability) && { verifiedPlayback: true }) };
 }

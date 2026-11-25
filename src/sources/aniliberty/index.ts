@@ -107,6 +107,7 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
   const alternative = titleText(names?.alternative);
   const name = titleText(names?.main) ?? english ?? alternative ?? alias;
   const alternateName = english === name ? alternative : english ?? alternative;
+  const shikimoriId = record(release.shikimori)?.id;
   return {
     alias,
     name,
@@ -115,6 +116,7 @@ function catalogEntry(release: Record<string, unknown>): CatalogEntry | undefine
     poster: imageUrl(release.poster),
     year: positiveInteger(release.year) ? release.year : undefined,
     id: positiveInteger(release.id) ? release.id : undefined,
+    shikimoriId: positiveInteger(shikimoriId) ? shikimoriId : undefined,
     ageRating: ageRatingFrom(release.age_rating),
     publishStatus: publishStatusFrom(release),
     type: localized(release.type, TYPE_NAMES),
