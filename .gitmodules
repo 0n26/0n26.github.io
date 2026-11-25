@@ -1,0 +1,6 @@
+[submodule "services/gateway"]
+	path = services/gateway
+	url = https://github.com/0n26/0n26-gateway.git
+[submodule "services/identity"]
+	path = services/identity
+	url = https://github.com/0n26/0n26-identity.git

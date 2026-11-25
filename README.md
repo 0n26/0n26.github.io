@@ -6,6 +6,8 @@
 
 Node.js указан в `.nvmrc`. Публичный репозиторий собирается без секретов и приватных submodule.
 
+Для backend-задач подключайте приватные `services/gateway` и `services/identity` по [руководству по сервисам](docs/services.md). Для обычного запуска сайта этого делать не нужно.
+
 ```sh
 npm ci
 npm run dev
