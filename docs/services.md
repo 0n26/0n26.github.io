@@ -3,8 +3,9 @@
 | Где | За что отвечает |
 | --- | --- |
 | Корень (`0n26.github.io`) | React/Vite/PWA на GitHub Pages. `src/app/` — оболочка и проверка сессии перед открытием маршрутов; `src/pages/` — экраны и их состояние; `src/components/` — общие компоненты и плеер; `src/routes/` — URL; `src/catalog/` и `src/sources/` — каталог и адаптеры без React. [`AGENTS.md`](../AGENTS.md) задаёт границы слоёв, [README](../README.md) — контракт источников. |
-| `services/gateway` ([0n26-gateway](https://github.com/0n26/0n26-gateway), приватный) | Единственный публичный Worker: HTTP API, CORS для origin Pages, проверка сессии и допуск к данным. Вызывает внутренние сервисы через Service Bindings. Читает индекс из закрытого Workers KV; сайт не отдаёт. |
+| `services/gateway` ([0n26-gateway](https://github.com/0n26/0n26-gateway), приватный) | Единственный публичный Worker: HTTP API, CORS для Pages и проверка сессии. Получает снимок через Service Binding после проверки доступа. Сайт не отдаёт. |
 | `services/identity` ([0n26-identity](https://github.com/0n26/0n26-identity), приватный) | Внутренний Worker без публичного URL: OAuth Shikimori, сессии, допуск и профили. Владеет собственной D1. |
+| `services/catalog` ([0n26-catalog](https://github.com/0n26/0n26-catalog), приватный) | Внутренний Worker без публичного URL: владеет закрытым Workers KV, отдаёт снимок через `readIndex()` и обновляет его в собственном CI. |
 
 Браузер обращается к Gateway по HTTPS; Identity недоступен напрямую. Shikimori возвращает браузер на `https://0n26.github.io/auth/callback`. Клиент передаёт код через Gateway, а Identity проверяет одноразовый `state` и привязку к вкладке. Код и токены Shikimori не хранятся на клиенте; токен сессии сайта остаётся в `sessionStorage`. Защищённые ответы не попадают в HTTP-кэш или PWA; список допуска, профили и индекс не публикуются с сайтом. Старый `0n26-backend` — справочник, не часть сборки.
 
@@ -13,7 +14,7 @@
 Обычный `git clone` и `npm ci` в корне достаточны для фронтенда. Для доступа к сервисам сначала войдите в GitHub под учётной записью с правом чтения нужного приватного репозитория. Затем из корня получите только нужные submodule:
 
 ```sh
-git submodule update --init -- services/gateway services/identity
+git submodule update --init -- services/gateway services/identity services/catalog
 ```
 
 Не используйте `--remote`: корень фиксирует точные коммиты. В Gateway больше нет вложенных Git submodule. При `404` или `Repository not found` проверьте права на приватный репозиторий, а не меняйте его видимость. Публичный CI и публикация Pages не скачивают сервисы; приватные токены им не нужны.
@@ -22,14 +23,15 @@ git submodule update --init -- services/gateway services/identity
 npm run check                         # из корня: типы, тесты и сборка сайта
 (cd services/gateway && npm ci && npm run check)
 (cd services/identity && npm ci && npm run check)
+(cd services/catalog && npm ci && npm run check)
 ```
 
-Перед изменением сервиса прочитайте `services/<имя>/AGENTS.md` и `README.md`. Для сборки Gateway нужен отдельный checkout публичного клиента в `services/gateway/frontend/`; для локального запуска — также отдельный checkout Identity в `services/gateway/identity/`. Оба каталога игнорируются Git; команды и ревизии указаны в README Gateway. `services/identity` остаётся основным checkout для работы над Identity. Для интеграции используйте тестовое OAuth-приложение и локальные D1/KV. Production callback и origin нельзя считать рабочими с `localhost`. Не запускайте продакшен-миграции и деплой для обычной проверки.
+Перед изменением сервиса прочитайте его `AGENTS.md` и `README.md` в `services/<имя>/`. Для сборки Gateway нужен отдельный checkout публичного клиента в `services/gateway/frontend/`; для локального запуска — также отдельные checkout в `services/gateway/identity/` и `services/gateway/catalog/`. Эти каталоги игнорируются Git; команды и ревизии указаны в README Gateway. Правки сервисов вносите в `services/identity` и `services/catalog`, а не во вложенные копии. Для интеграции используйте тестовое OAuth-приложение и локальные D1/KV; не запускайте production-миграции и деплой для обычной проверки.
 
 ## Изменение границ и версий
 
 1. Правьте код в репозитории-владельце на ветке от его `main`. Submodule по умолчанию открывается на detached HEAD: создайте ветку в самом сервисе, а не коммитите его файлы в корень. Для каждого затронутого репозитория — свой PR, `verify` и правила [CONTRIBUTING](../CONTRIBUTING.md).
-2. Если меняется контракт, перечислите поставщика и потребителей: `Identity RPC → Gateway HTTP → клиент`. Добавляйте совместимый контракт у поставщика, затем обновляйте потребителей. Проверяйте ошибки и отказы на каждой затронутой границе. Порядок деплоя и отсутствие несовместимого окна фиксируйте в описании PR. Сервисы выпускают версии независимо; обновление gitlink само ничего не деплоит.
+2. Если меняется контракт, перечислите поставщика и потребителей: `(Identity или Catalog) RPC → Gateway HTTP → клиент`. Сначала добавляйте совместимый контракт у поставщика, затем обновляйте потребителей. Проверяйте ошибки и отказы на каждой затронутой границе. Порядок деплоя фиксируйте в PR. Сервисы выпускают версии независимо; обновление gitlink ничего не деплоит.
 3. После слияния PR сервиса обновите указатель на конкретный коммит его `main` или релизный тег в корневом PR. Укажите SHA и ссылку на PR сервиса. Не закрепляйте коммиты, существующие только локально или в ветке, которую удалят. Если менялись адаптеры или RPC, проверьте также ревизии отдельных checkout в README Gateway и, для клиента, в workflow `Refresh private catalog`.
 
 ## Как добавить сервис
