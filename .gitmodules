@@ -4,3 +4,6 @@
 [submodule "services/identity"]
 	path = services/identity
 	url = https://github.com/0n26/0n26-identity.git
+[submodule "services/catalog"]
+	path = services/catalog
+	url = https://github.com/0n26/0n26-catalog.git
