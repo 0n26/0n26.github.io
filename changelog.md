@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/0n26/0n26.github.io/compare/v1.0.0...v1.0.1) (2026-11-25)
+
+### Исправления
+
+* принимать callback Shikimori на GitHub Pages ([#63](https://github.com/0n26/0n26.github.io/pull/63))
+
+  Callback на /auth/callback, без навигации через Gateway.
+
 ## [1.0.0](https://github.com/0n26/0n26.github.io/compare/v0.15.0...v1.0.0) (2026-11-25)
 
 ### Возможности
