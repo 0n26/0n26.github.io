@@ -12,7 +12,7 @@ import { ThemeMenu } from './ThemeMenu';
 import { UpdateNotice } from './UpdateNotice';
 import styles from './App.module.css';
 
-const TitlePage = lazy(() => import('../pages/title').then(m => ({ default: m.TitlePage })));
+import { TitleRoute } from './TitleRoute';
 const SchedulePage = lazy(() => import('../pages/schedule').then(m => ({ default: m.SchedulePage })));
 const ChangelogPage = lazy(() => import('../pages/changelog').then(m => ({ default: m.ChangelogPage })));
 const AboutPage = lazy(() => import('../pages/about').then(m => ({ default: m.AboutPage })));
@@ -89,7 +89,7 @@ export function App({ initialSession }: { initialSession: Promise<SessionState> 
           <Suspense fallback={<Text role="status">Загрузка страницы…</Text>}>
             <Routes>
               <Route index element={<CatalogPage />} />
-              <Route path="anime/:source/:alias" element={<TitlePage />} />
+              <Route path="anime/:source/:alias" element={<TitleRoute />} />
               <Route path="schedule" element={<SchedulePage />} />
               <Route path="changelog" element={<ChangelogPage />} />
               <Route path="about" element={<AboutPage onInstall={installPrompt ? install : undefined} />} />
