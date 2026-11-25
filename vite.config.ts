@@ -1,8 +1,20 @@
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { normalizePath } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  server: {
+    fs: {
+      // Keep Vite's default deny list when excluding private service checkouts.
+      deny: ['.env', '.env.*', '*.{crt,pem,key,p12,pfx,cer,der}', '.npmrc', '.yarnrc.yml', '**/.git/**',
+        `${normalizePath(fileURLToPath(new URL('./services/', import.meta.url)))}**`],
+    },
+  },
+  test: {
+    include: ['tests/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+  },
   plugins: [
     react(),
     {
