@@ -22,6 +22,36 @@ function postAuth(path: string, body: object) {
   });
 }
 
+type AccountAction = 'register' | 'login' | 'request-reset' | 'reset' | 'request-upgrade' | 'upgrade'
+  | 'connections' | 'link-start' | 'link-complete' | 'unlink';
+
+export async function accountRequest(action: AccountAction, body: Record<string, string> = {}, signal = timeout()): Promise<unknown> {
+  const token = sessionStorage.getItem(tokenKey);
+  const response = await gatewayFetch(`/auth/account/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(isBearer(token) ? bearer(token) : {}) },
+    body: JSON.stringify(body),
+    signal: AbortSignal.any([signal, timeout()]),
+  });
+  if (!response.ok) {
+    if (response.status === 429) throw new Error('Слишком много попыток. Попробуйте позже.');
+    if (response.status === 409) throw new Error('Не удалось выполнить действие: адрес или аккаунт уже используется.');
+    if (response.status === 403) throw new Error('Действие недоступно для этого аккаунта или приглашения.');
+    if (response.status === 400 || response.status === 401) throw new Error('Проверьте данные. Ссылка или код могли истечь.');
+    throw new Error('Сервис аккаунтов недоступен. Попробуйте позже.');
+  }
+  if (action === 'reset') sessionStorage.removeItem(tokenKey);
+  return response.json();
+}
+
+export async function openLocalSession(action: 'login' | 'register', body: Record<string, string>) {
+  const result = await accountRequest(action, body);
+  const token = (result as { token?: unknown } | null)?.token;
+  if (!isBearer(token) || await verifySession(token) !== 'signed-in') {
+    throw new Error('Не удалось подтвердить сессию.');
+  }
+}
+
 function isCredential(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 }
@@ -46,14 +76,14 @@ function hex(bytes: Uint8Array) {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export async function beginLogin() {
+export async function beginLogin(link = false) {
   const verifier = hex(crypto.getRandomValues(new Uint8Array(32)));
   const challenge = hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
   const hashPath = `/${location.hash}`;
-  const returnTo = isReturnPath(hashPath) ? hashPath : '/#/';
-  const response = await postAuth('/auth/start', { returnTo, challenge });
-  if (!response.ok) throw new Error('Unable to start login');
-  const data = await response.json();
+  const returnTo = link ? '/#/profile' : isReturnPath(hashPath) ? hashPath : '/#/';
+  const response = link ? null : await postAuth('/auth/start', { returnTo, challenge });
+  if (response && !response.ok) throw new Error('Не удалось начать вход через Shikimori.');
+  const data = (response ? await response.json() : await accountRequest('link-start', { challenge })) as { url?: unknown };
   if (typeof data?.url !== 'string') throw new Error('Invalid authorization URL');
   const url = new URL(data.url);
   const [state, ...extraStates] = url.searchParams.getAll('state');
@@ -62,7 +92,7 @@ export async function beginLogin() {
     || redirect !== callbackUrl || extraRedirects.length || !isCredential(state) || extraStates.length) {
     throw new Error('Invalid authorization URL');
   }
-  sessionStorage.setItem(attemptKey, JSON.stringify({ state, verifier, returnTo }));
+  sessionStorage.setItem(attemptKey, JSON.stringify({ state, verifier, returnTo, ...(link && { link: true }) }));
   location.assign(url.href);
 }
 
@@ -73,7 +103,7 @@ function consumeAttempt() {
   try {
     const attempt = JSON.parse(saved);
     if (isCredential(attempt?.state) && isCredential(attempt.verifier) && isReturnPath(attempt.returnTo)) {
-      return { state: attempt.state, verifier: attempt.verifier, returnTo: attempt.returnTo };
+      return { state: attempt.state, verifier: attempt.verifier, returnTo: attempt.returnTo, link: attempt.link === true };
     }
   } catch {
     // An unreadable attempt cannot authenticate this tab.
@@ -83,8 +113,25 @@ function consumeAttempt() {
 
 async function completeCallback(url: URL): Promise<SessionState> {
   history.replaceState(history.state, '', '/');
-  sessionStorage.removeItem(tokenKey);
   const attempt = consumeAttempt();
+  if (attempt?.link) {
+    const token = sessionStorage.getItem(tokenKey);
+    const state = url.searchParams.getAll('state');
+    const code = url.searchParams.getAll('code');
+    let linked = false;
+    if (isBearer(token) && state.length === 1 && state[0] === attempt.state
+      && code.length === 1 && code[0] && code[0].length <= 2048 && !url.searchParams.has('error')) {
+      try {
+        await accountRequest('link-complete', { state: state[0], code: code[0], verifier: attempt.verifier });
+        linked = true;
+      } catch {
+        // A failed connection must not end the site session.
+      }
+    }
+    history.replaceState(history.state, '', `/#/profile?connection=${linked ? 'linked' : 'failed'}`);
+    return isBearer(token) ? verifySession(token) : 'guest';
+  }
+  sessionStorage.removeItem(tokenKey);
   if (!attempt) return 'invalid';
   history.replaceState(history.state, '', attempt.returnTo);
 

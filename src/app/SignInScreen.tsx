@@ -1,7 +1,9 @@
 import { Alert, Badge, Button, Group, Loader, Paper, Stack, Text, Title } from '@mantine/core';
 import { useState } from 'react';
+import { useLocation } from 'react-router';
 import { beginLogin } from '../api';
 import type { SessionState } from '../api';
+import { AccountForm } from './AccountForm';
 import { ThemeMenu } from './ThemeMenu';
 import { UpdateNotice } from './UpdateNotice';
 import styles from './SignInScreen.module.css';
@@ -16,6 +18,12 @@ const feedback = {
 };
 
 export function SignInScreen({ status }: { status: SignInStatus }) {
+  const { pathname } = useLocation();
+  const mode = pathname === '/register' ? 'register' : pathname === '/forgot' ? 'forgot' : pathname === '/reset' ? 'reset' : 'login';
+  const title = {
+    login: 'Вход в Ночной сеанс', register: 'Регистрация по приглашению',
+    forgot: 'Восстановление доступа', reset: 'Новый пароль',
+  }[mode];
   const [login, setLogin] = useState<'pending' | 'failed'>();
   const checking = status === 'checking' || status === 'signing-out';
   const error = login === 'failed' ? feedback.unavailable : !login && !checking && status !== 'guest' ? feedback[status] : null;
@@ -39,7 +47,7 @@ export function SignInScreen({ status }: { status: SignInStatus }) {
             <Stack gap="lg">
               <Stack gap="sm" align="flex-start">
                 <Badge variant="light">Закрытое тестирование</Badge>
-                <Title id="signin-title" order={1} className={styles.title}>Вход в Ночной сеанс</Title>
+                <Title id="signin-title" order={1} className={styles.title}>{title}</Title>
                 <Text c="dimmed">Каталог, расписание и плеер доступны приглашённым участникам.</Text>
               </Stack>
               {checking ? (
@@ -50,17 +58,16 @@ export function SignInScreen({ status }: { status: SignInStatus }) {
               ) : (
                 <>
                   {error && <Alert color="red" role="alert" title={error.title}>{error.text}</Alert>}
-                  <Button className={styles.action} size="md" mih={44} fullWidth disabled={login === 'pending'}
-                    leftSection={login === 'pending' ? <Loader size="xs" color="gray" aria-hidden="true" /> : undefined}
-                    onClick={() => {
-                      setLogin('pending');
-                      void beginLogin().catch(() => setLogin('failed'));
-                    }}>
-                    {login === 'pending' ? 'Открываем Shikimori…' : 'Войти через Shikimori'}
-                  </Button>
-                  <Text size="sm" c="dimmed" ta="center" role="status">
-                    {login === 'pending' ? 'Завершите вход в этой же вкладке.' : 'Пароль вводится только на сайте Shikimori.'}
-                  </Text>
+                  <AccountForm key={mode} mode={mode} />
+                  {mode === 'login' && (
+                    <Button variant="default" size="compact-md" mih={44} fullWidth loading={login === 'pending'}
+                      onClick={() => {
+                        setLogin('pending');
+                        void beginLogin().catch(() => setLogin('failed'));
+                      }}>
+                      Вход через Shikimori для тестировщиков
+                    </Button>
+                  )}
                 </>
               )}
             </Stack>

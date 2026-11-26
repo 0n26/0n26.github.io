@@ -33,6 +33,7 @@ export function App({ initialSession }: { initialSession: Promise<SessionState> 
   const watch = useMatch('/anime/:source/:alias');
 
   const catalog = useMatch('/');
+  const reset = useMatch('/reset');
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent>();
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export function App({ initialSession }: { initialSession: Promise<SessionState> 
     void installPrompt.prompt().catch(error => console.warn('Не удалось открыть окно установки', error));
   };
 
-  if (session !== 'signed-in') return <SignInScreen status={session} />;
+  if (session !== 'signed-in' || reset) return <SignInScreen status={session === 'signed-in' ? 'guest' : session} />;
 
   return (
     <AppShell header={{ height: catalog ? { base: 56, xs: 76 } : 76 }} className={styles.shell}>
@@ -94,6 +95,7 @@ export function App({ initialSession }: { initialSession: Promise<SessionState> 
               <Route path="changelog" element={<ChangelogPage />} />
               <Route path="about" element={<AboutPage onInstall={installPrompt ? install : undefined} />} />
               <Route path="profile/:id?" element={<ProfilePage onLogout={signOut} />} />
+              <Route path="upgrade" element={<ProfilePage onLogout={signOut} />} />
               <Route path="*" element={
                 <Stack align="flex-start">
                   <Title order={1}>Страница не найдена</Title>

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { beginLogin, logout, readApi, restoreSession } from '../src/api';
+import { beginLogin, logout, openLocalSession, readApi, restoreSession } from '../src/api';
 
 const site = 'https://0n26.github.io';
 const gateway = 'https://gateway.pyw0w.workers.dev';
@@ -60,6 +60,35 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+it('only saves a local login token after verifying the site session', async () => {
+  fetcher.mockResolvedValueOnce(Response.json({ token }))
+    .mockResolvedValueOnce(new Response(null, { status: 401 }));
+  await expect(openLocalSession('login', { email: 'test@example.org', password: 'test password' })).rejects.toThrow();
+  expect(storage.has(tokenKey)).toBe(false);
+  fetcher.mockResolvedValueOnce(Response.json({ token })).mockResolvedValueOnce(Response.json(profile));
+  await openLocalSession('login', { email: 'test@example.org', password: 'test password' });
+  expect(storage.get(tokenKey)).toBe(token);
+});
+
+it.each([200, 409])('completes Shikimori linking without replacing the site session (%s)', async status => {
+  directCallback(`code=provider-code&state=${oauthState}`);
+  storage.set(tokenKey, token);
+  storage.set(attemptKey, JSON.stringify({ state: oauthState, verifier, returnTo: '/#/profile', link: true }));
+  fetcher.mockImplementationOnce(async (_url, init) => {
+    expect(location.href).toBe(`${site}/`);
+    expect(init?.headers).toMatchObject({ Authorization: `Bearer ${token}` });
+    return Response.json({}, { status });
+  }).mockResolvedValueOnce(Response.json(profile));
+
+  expect(await restoreSession()).toBe('signed-in');
+  expect(fetcher).toHaveBeenNthCalledWith(1, `${gateway}/auth/account/link-complete`, expect.objectContaining({
+    body: JSON.stringify({ state: oauthState, code: 'provider-code', verifier }),
+  }));
+  expect(storage.get(tokenKey)).toBe(token);
+  expect(storage.has(attemptKey)).toBe(false);
+  expect(location.href).toBe(`${site}/#/profile?connection=${status === 200 ? 'linked' : 'failed'}`);
 });
 
 describe('Gateway session', () => {
