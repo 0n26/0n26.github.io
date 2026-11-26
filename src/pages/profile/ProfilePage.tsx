@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router';
 import { readApi } from '../../api';
 import { useRequest } from '../../hooks/useRequest';
 import { positiveParam } from '../../routes/catalogFilters';
+import { AccountSettings } from './AccountSettings';
 
 interface Profile {
   id: number;
@@ -26,7 +27,7 @@ export function ProfilePage({ onLogout }: { onLogout: () => void }) {
   if (request.status === 'error') return <Alert title="Не удалось загрузить профиль" role="alert">Обновите страницу и попробуйте ещё раз.</Alert>;
   if (!request.data) return <Text role="status">Профиль не найден.</Text>;
 
-  const { id: shikimoriId, nickname, avatar, tester } = request.data;
+  const { id: accountId, nickname, avatar, tester } = request.data;
   return (
     <Stack align="flex-start" gap="lg">
       <Group>
@@ -36,10 +37,11 @@ export function ProfilePage({ onLogout }: { onLogout: () => void }) {
       {tester && <Badge variant="light">Тестировщик</Badge>}
       {own && (
         <Group>
-          <Button component={Link} to={`/profile/${shikimoriId}`} variant="light">Открыть ссылку на профиль</Button>
+          <Button component={Link} to={`/profile/${accountId}`} variant="light">Открыть ссылку на профиль</Button>
           <Button onClick={onLogout} variant="default">Выйти</Button>
         </Group>
       )}
+      {own && <AccountSettings />}
     </Stack>
   );
 }
