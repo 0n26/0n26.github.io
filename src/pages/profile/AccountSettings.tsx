@@ -1,15 +1,16 @@
-import { Alert, Button, Group, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { useEffect, useState } from 'react';
-import type { SubmitEvent } from 'react';
 import { useSearchParams } from 'react-router';
 import { accountRequest, beginLogin } from '../../api';
+import { RecoveryCode } from '../../components/RecoveryCode';
+import { getRecoveryCode, passkeyError, requestPasskeyCredential } from '../../passkeys';
 
 export function AccountSettings() {
   const [params, setParams] = useSearchParams();
   const [connection, setConnection] = useState<{ local: boolean; shikimoriId: number | null }>();
   const [loadError, setLoadError] = useState(false);
   const [pending, setPending] = useState(false);
-  const [confirm, setConfirm] = useState(params.has('code'));
+  const [recoveryCode, setRecoveryCode] = useState<string>();
   const [notice, setNotice] = useState<{ error?: boolean; text: string }>();
 
   useEffect(() => {
@@ -30,28 +31,10 @@ export function AccountSettings() {
     try {
       await action();
     } catch (error) {
-      setNotice({ error: true, text: error instanceof Error && !(error instanceof TypeError)
-        ? error.message : 'Не удалось связаться с сервисом. Попробуйте ещё раз.' });
+      setNotice({ error: true, text: passkeyError(error) });
     } finally {
       setPending(false);
     }
-  }
-
-  function upgrade(event: SubmitEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const fields = new FormData(event.currentTarget);
-    void run(async () => {
-      if (!confirm) {
-        await accountRequest('request-upgrade', { email: String(fields.get('email') ?? '') });
-        setConfirm(true);
-        setNotice({ text: 'Если адрес можно использовать, мы отправим код. Введите его в этой вкладке.' });
-      } else {
-        await accountRequest('upgrade', { code: String(fields.get('code') ?? ''), password: String(fields.get('password') ?? '') });
-        if (params.has('code')) setParams({}, { replace: true });
-        setConnection(previous => previous && { ...previous, local: true });
-        setNotice({ text: 'Пароль установлен. В следующий раз войдите по email.' });
-      }
-    });
   }
 
   return (
@@ -61,39 +44,37 @@ export function AccountSettings() {
       {params.get('connection') === 'failed' && !notice && <Alert role="alert" color="red">Не удалось привязать Shikimori.</Alert>}
       {loadError ? <Text role="alert">Не удалось загрузить настройки аккаунта.</Text> : !connection ? (
         <Text role="status">Загружаем настройки…</Text>
+      ) : recoveryCode ? (
+        <RecoveryCode code={recoveryCode} onDone={() => {
+          setRecoveryCode(undefined);
+          setConnection({ ...connection, local: true });
+          setNotice({ text: 'Ключ доступа добавлен. Теперь входите с ним, а не через Shikimori.' });
+        }} />
       ) : !connection.local ? (
-        <form key={String(confirm)} onSubmit={upgrade}>
-          <Stack gap="sm">
-            <Text size="sm">Добавьте email и пароль, чтобы входить без Shikimori. Профиль и допуск сохранятся.</Text>
-            {confirm ? (
-              <>
-                <TextInput name="code" label="Код из письма" required maxLength={64} defaultValue={params.get('code') ?? ''} />
-                <PasswordInput name="password" label="Новый пароль" required minLength={15} maxLength={128}
-                  description="Не менее 15 символов" autoComplete="new-password" />
-              </>
-            ) : <TextInput name="email" label="Email" type="email" required maxLength={254} autoComplete="email" />}
-            <Group>
-              <Button type="submit" loading={pending}>{confirm ? 'Установить пароль' : 'Отправить код'}</Button>
-              {confirm && <Button variant="subtle" disabled={pending} onClick={() => {
-                setParams({}, { replace: true });
-                setConfirm(false);
-                setNotice(undefined);
-              }}>Указать другой email</Button>}
-            </Group>
-          </Stack>
-        </form>
+        <>
+          <Text size="sm">Добавьте ключ доступа, чтобы входить без Shikimori. Профиль и допуск сохранятся.</Text>
+          <Button variant="light" loading={pending} onClick={() => void run(async () => {
+            setRecoveryCode(getRecoveryCode(await requestPasskeyCredential('upgrade')));
+          })}>Перейти на ключ доступа</Button>
+        </>
       ) : (
-        <Group>
-          <Text size="sm">{connection.shikimoriId ? `Shikimori привязан (ID ${connection.shikimoriId})` : 'Shikimori не привязан'}</Text>
-          {connection.shikimoriId ? (
-            <Button variant="default" loading={pending} onClick={() => void run(async () => {
-              await accountRequest('unlink');
-              setConnection({ local: true, shikimoriId: null });
-              setParams({}, { replace: true });
-              setNotice({ text: 'Shikimori отвязан.' });
-            })}>Отвязать Shikimori</Button>
-          ) : <Button loading={pending} onClick={() => void run(() => beginLogin(true))}>Привязать Shikimori</Button>}
-        </Group>
+        <>
+          <Group>
+            <Text size="sm">{connection.shikimoriId ? `Shikimori привязан (ID ${connection.shikimoriId})` : 'Shikimori не привязан'}</Text>
+            {connection.shikimoriId ? (
+              <Button variant="default" disabled={pending} onClick={() => void run(async () => {
+                await accountRequest('unlink');
+                setConnection({ local: true, shikimoriId: null });
+                setParams({}, { replace: true });
+                setNotice({ text: 'Shikimori отвязан.' });
+              })}>Отвязать Shikimori</Button>
+            ) : <Button disabled={pending} onClick={() => void run(() => beginLogin(true))}>Привязать Shikimori</Button>}
+          </Group>
+          <Button variant="light" loading={pending} onClick={() => void run(async () => {
+            await requestPasskeyCredential('add');
+            setNotice({ text: 'Дополнительный ключ доступа добавлен.' });
+          })}>Добавить ключ доступа</Button>
+        </>
       )}
     </Stack>
   );

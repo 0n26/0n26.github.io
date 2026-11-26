@@ -22,10 +22,10 @@ function postAuth(path: string, body: object) {
   });
 }
 
-type AccountAction = 'register' | 'login' | 'request-reset' | 'reset' | 'request-upgrade' | 'upgrade'
-  | 'connections' | 'link-start' | 'link-complete' | 'unlink';
+type PasskeyAction = 'register' | 'login' | 'recover' | 'upgrade' | 'add';
+type AccountAction = `${PasskeyAction}-${'start' | 'finish'}` | 'connections' | 'link-start' | 'link-complete' | 'unlink';
 
-export async function accountRequest(action: AccountAction, body: Record<string, string> = {}, signal = timeout()): Promise<unknown> {
+export async function accountRequest(action: AccountAction, body: Record<string, unknown> = {}, signal = timeout()): Promise<unknown> {
   const token = sessionStorage.getItem(tokenKey);
   const response = await gatewayFetch(`/auth/account/${action}`, {
     method: 'POST',
@@ -35,17 +35,15 @@ export async function accountRequest(action: AccountAction, body: Record<string,
   });
   if (!response.ok) {
     if (response.status === 429) throw new Error('Слишком много попыток. Попробуйте позже.');
-    if (response.status === 409) throw new Error('Не удалось выполнить действие: адрес или аккаунт уже используется.');
+    if (response.status === 409) throw new Error('Этот ключ или аккаунт уже используется.');
     if (response.status === 403) throw new Error('Действие недоступно для этого аккаунта или приглашения.');
-    if (response.status === 400 || response.status === 401) throw new Error('Проверьте данные. Ссылка или код могли истечь.');
+    if (response.status === 400 || response.status === 401) throw new Error('Не удалось подтвердить ключ или код. Начните заново.');
     throw new Error('Сервис аккаунтов недоступен. Попробуйте позже.');
   }
-  if (action === 'reset') sessionStorage.removeItem(tokenKey);
   return response.json();
 }
 
-export async function openLocalSession(action: 'login' | 'register', body: Record<string, string>) {
-  const result = await accountRequest(action, body);
+export async function openLocalSession(result: unknown) {
   const token = (result as { token?: unknown } | null)?.token;
   if (!isBearer(token) || await verifySession(token) !== 'signed-in') {
     throw new Error('Не удалось подтвердить сессию.');

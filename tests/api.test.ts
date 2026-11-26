@@ -62,13 +62,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('only saves a local login token after verifying the site session', async () => {
-  fetcher.mockResolvedValueOnce(Response.json({ token }))
-    .mockResolvedValueOnce(new Response(null, { status: 401 }));
-  await expect(openLocalSession('login', { email: 'test@example.org', password: 'test password' })).rejects.toThrow();
+it('only saves a token returned by passkey login after verifying the site session', async () => {
+  fetcher.mockResolvedValueOnce(new Response(null, { status: 401 }));
+  await expect(openLocalSession({ token })).rejects.toThrow();
   expect(storage.has(tokenKey)).toBe(false);
-  fetcher.mockResolvedValueOnce(Response.json({ token })).mockResolvedValueOnce(Response.json(profile));
-  await openLocalSession('login', { email: 'test@example.org', password: 'test password' });
+  fetcher.mockResolvedValueOnce(Response.json(profile));
+  await openLocalSession({ token });
   expect(storage.get(tokenKey)).toBe(token);
 });
 

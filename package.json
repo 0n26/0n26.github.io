@@ -14,6 +14,7 @@
   "dependencies": {
     "@mantine/core": "^9.8.1",
     "@mantine/hooks": "^9.8.1",
+    "@simplewebauthn/browser": "14.0.0",
     "anime4k-webgpu-async": "^3.3.0",
     "hls.js": "^1.7.4",
     "react": "^19.3.1",

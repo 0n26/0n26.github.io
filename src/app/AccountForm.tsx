@@ -1,69 +1,81 @@
-import { Alert, Anchor, Button, PasswordInput, Stack, TextInput } from '@mantine/core';
+import { Alert, Anchor, Button, Stack, Text, TextInput } from '@mantine/core';
 import { useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { accountRequest, openLocalSession } from '../api';
+import { openLocalSession } from '../api';
+import { RecoveryCode } from '../components/RecoveryCode';
+import { getRecoveryCode, passkeyError, requestPasskeyCredential } from '../passkeys';
 
-export type AccountMode = 'login' | 'register' | 'forgot' | 'reset';
+export type AccountMode = 'login' | 'register' | 'recover';
 
-const labels = {
-  login: 'Войти', register: 'Создать аккаунт', forgot: 'Отправить письмо', reset: 'Сохранить новый пароль',
-};
+const labels = { login: 'Войти с ключом доступа', register: 'Создать ключ доступа', recover: 'Восстановить доступ' };
 
 export function AccountForm({ mode }: { mode: AccountMode }) {
   const [params] = useSearchParams();
   const [pending, setPending] = useState(false);
-  const [notice, setNotice] = useState<{ error?: boolean; text: string }>();
-  const password = mode !== 'forgot';
+  const [error, setError] = useState<string>();
+  const [recovery, setRecovery] = useState<{ code: string; session: unknown }>();
+
+  async function enter(session: unknown) {
+    await openLocalSession(session);
+    if (mode !== 'login') history.replaceState(history.state, '', '/#/');
+    location.reload();
+  }
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
     const fields = new FormData(event.currentTarget);
-    const value = (name: string) => String(fields.get(name) ?? '');
     setPending(true);
-    setNotice(undefined);
+    setError(undefined);
     try {
-      if (mode === 'login' || mode === 'register') {
-        const credentials = { email: value('email'), password: value('password') };
-        await openLocalSession(mode, mode === 'login' ? credentials : {
-          ...credentials, invite: value('invite'), nickname: value('nickname'),
-        });
-        if (mode === 'register') history.replaceState(history.state, '', '/#/');
-        location.reload();
-      } else if (mode === 'forgot') {
-        await accountRequest('request-reset', { email: value('email') });
-        setNotice({ text: 'Если этот адрес связан с аккаунтом, на него придёт письмо для сброса пароля.' });
-      } else {
-        await accountRequest('reset', { code: params.get('code') ?? '', password: value('password') });
-        location.replace('/');
-      }
-    } catch (error) {
-      setNotice({ error: true, text: error instanceof Error && !(error instanceof TypeError)
-        ? error.message : 'Не удалось связаться с сервисом. Попробуйте ещё раз.' });
+      const result = await requestPasskeyCredential(mode, mode === 'login' ? {} : mode === 'register' ? {
+        invite: String(fields.get('invite') ?? '').trim(), nickname: String(fields.get('nickname') ?? ''),
+      } : { code: String(fields.get('code') ?? '').trim() });
+      if (mode === 'login') await enter(result);
+      else setRecovery({ code: getRecoveryCode(result), session: result });
+    } catch (failure) {
+      setError(passkeyError(failure));
     } finally {
       setPending(false);
     }
   }
 
+  if (recovery) return (
+    <Stack gap="sm">
+      {error && <Alert role="alert" color="red">{error}</Alert>}
+      <RecoveryCode code={recovery.code} pending={pending} onDone={() => {
+        if (pending) return;
+        setPending(true);
+        setError(undefined);
+        void enter(recovery.session).catch(failure => setError(passkeyError(failure))).finally(() => setPending(false));
+      }} />
+    </Stack>
+  );
+
   return (
     <form onSubmit={event => void submit(event)}>
       <Stack gap="sm">
-        {notice && <Alert role={notice.error ? 'alert' : 'status'} color={notice.error ? 'red' : undefined}>{notice.text}</Alert>}
-        {mode === 'register' && <TextInput label="Код приглашения" name="invite" required maxLength={64}
-          defaultValue={params.get('invite') ?? ''} spellCheck={false} autoComplete="off" />}
-        {mode !== 'reset' && <TextInput label="Email" name="email" type="email" required maxLength={254}
-          autoComplete={mode === 'login' ? 'username' : 'email'} />}
-        {mode === 'register' && <TextInput label="Имя в профиле" name="nickname" required maxLength={128} autoComplete="nickname" />}
-        {password && <PasswordInput label={mode === 'reset' ? 'Новый пароль' : 'Пароль'} name="password" required
-          minLength={mode === 'login' ? undefined : 15} maxLength={128}
-          description={mode === 'login' ? undefined : 'Не менее 15 символов'}
-          autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />}
+        {error && <Alert role="alert" color="red">{error}</Alert>}
+        {mode === 'register' && (
+          <>
+            <TextInput label="Код приглашения" name="invite" required pattern="[a-f0-9]{64}" maxLength={64}
+              defaultValue={params.get('invite') ?? ''} spellCheck={false} autoComplete="off" />
+            <TextInput label="Имя в профиле" name="nickname" required maxLength={128} autoComplete="nickname" />
+          </>
+        )}
+        {mode === 'recover' && (
+          <>
+            <TextInput label="Код восстановления" name="code" required pattern="[a-f0-9]{64}" maxLength={64}
+              spellCheck={false} autoComplete="off" />
+            <Text size="sm" c="dimmed">После восстановления прежние ключи и сессии перестанут работать.</Text>
+          </>
+        )}
         <Button type="submit" mih={44} loading={pending} variant="light">{labels[mode]}</Button>
         {mode === 'login' ? (
           <>
             <Anchor component={Link} to="/register" size="sm">У меня есть приглашение</Anchor>
-            <Anchor component={Link} to="/forgot" size="sm">Не помню пароль</Anchor>
+            <Anchor component={Link} to="/recover" size="sm">Потерял ключ доступа</Anchor>
           </>
         ) : <Anchor component={Link} to="/" size="sm">Ко входу</Anchor>}
       </Stack>

@@ -19,10 +19,10 @@ const feedback = {
 
 export function SignInScreen({ status }: { status: SignInStatus }) {
   const { pathname } = useLocation();
-  const mode = pathname === '/register' ? 'register' : pathname === '/forgot' ? 'forgot' : pathname === '/reset' ? 'reset' : 'login';
+  const mode = pathname === '/register' ? 'register' : pathname === '/recover' ? 'recover' : 'login';
   const title = {
     login: 'Вход в Ночной сеанс', register: 'Регистрация по приглашению',
-    forgot: 'Восстановление доступа', reset: 'Новый пароль',
+    recover: 'Восстановление доступа',
   }[mode];
   const [login, setLogin] = useState<'pending' | 'failed'>();
   const checking = status === 'checking' || status === 'signing-out';
